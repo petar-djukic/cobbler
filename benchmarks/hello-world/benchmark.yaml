@@ -1,0 +1,20 @@
+name: hello-world
+description: Minimal Go CLI that prints Hello, World! to stdout
+language: go
+
+spec:
+  file: VISION.md
+
+expected:
+  files:
+    - main.go
+    - go.mod
+
+criteria:
+  build:
+    command: go build -o hello .
+    exit_code: 0
+  run:
+    command: ./hello
+    stdout: "Hello, World!\n"
+    exit_code: 0
