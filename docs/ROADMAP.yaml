@@ -1,0 +1,128 @@
+# Cobbler Roadmap
+# Release schedule and use case status for cobbler.
+#
+# Commands use shoemaking terms mapped to autogenic self-* capabilities:
+#   measure (self-orienting): assess state, propose tasks
+#   stitch (self-programming): execute work via agents
+#   inspect (self-reflecting): show project state
+#   mend (self-reflecting): fix tests and lint
+#   pattern (self-architecting): propose design changes
+
+releases:
+  - id: "00.0"
+    focus: Cross-release milestones
+    description: |
+      Milestones that span multiple releases. These are not tied to a single
+      release but track progress across the project lifecycle.
+    use_cases: []
+    deliverables:
+      - Cupboard interface integration complete
+      - Prototype scripts (make-work.sh, do-work.sh) obsolete
+      - All five commands operational
+
+  - id: "01.0"
+    focus: Core stitch (docs)
+    description: |
+      cobbler stitch --docs working end-to-end. Agents execute documentation
+      tasks via the stitch command with cupboard read/write via crumbs module.
+    use_cases:
+      - id: rel01.0-uc001-cupboard-connection
+        name: Cupboard connection
+        description: Connect to crumbs cupboard via Go module import
+        status: planned
+      - id: rel01.0-uc002-doc-task-execution
+        name: Documentation task execution
+        description: Execute a documentation task via stitch command
+        status: planned
+      - id: rel01.0-uc003-agent-loop
+        name: Agent loop
+        description: Run agent loop with prompt templates and tool execution
+        status: planned
+    deliverables:
+      - cmd/cobbler CLI entry point with stitch subcommand
+      - internal/stitch executor for documentation tasks
+      - internal/prompt templates for doc work
+      - internal/crumbs cupboard wrapper using crumbs Go module
+      - internal/claude Agent implementation
+
+  - id: "02.0"
+    focus: Core stitch (code)
+    description: |
+      cobbler stitch --code working. Agents execute code tasks with git worktree
+      management and quality gate validation (tests, lint, build).
+    use_cases:
+      - id: rel02.0-uc001-code-task-execution
+        name: Code task execution
+        description: Execute a code task in a git worktree
+        status: planned
+      - id: rel02.0-uc002-quality-gates
+        name: Quality gates
+        description: Run tests, linter, and build before closing tasks
+        status: planned
+    deliverables:
+      - Git worktree creation and cleanup
+      - Branch management (create, merge, delete)
+      - Quality gate execution (test, lint, build)
+      - internal/stitch code task support
+
+  - id: "03.0"
+    focus: Measure
+    description: |
+      cobbler measure working. Assess project state, analyze existing work,
+      and propose new tasks. Replaces make-work.sh prototype.
+    use_cases:
+      - id: rel03.0-uc001-project-analysis
+        name: Project analysis
+        description: Read VISION, ARCHITECTURE, ROADMAP, and cupboard state
+        status: planned
+      - id: rel03.0-uc002-work-proposal
+        name: Work proposal
+        description: Agent proposes new tasks based on project state
+        status: planned
+      - id: rel03.0-uc003-crumb-creation
+        name: Crumb creation
+        description: Write approved proposals to cupboard as new crumbs
+        status: planned
+    deliverables:
+      - internal/measure command implementation
+      - Prompt templates for project analysis
+      - Proposal output format (JSON or structured)
+      - User review and approval workflow
+
+  - id: "04.0"
+    focus: Inspect, mend, and pattern
+    description: |
+      Remaining self-* capabilities. inspect evaluates output quality, mend
+      fixes issues found by inspect, pattern proposes design changes.
+    use_cases:
+      - id: rel04.0-uc001-project-state-display
+        name: Project state display
+        description: Show current project state and recent work via inspect
+        status: planned
+      - id: rel04.0-uc002-test-lint-fix-loop
+        name: Test and lint fix loop
+        description: Automatically fix failing tests and lint issues via mend
+        status: planned
+      - id: rel04.0-uc003-design-proposals
+        name: Design proposals
+        description: Propose architectural changes via pattern command
+        status: planned
+    deliverables:
+      - internal/inspect command implementation
+      - internal/mend command implementation
+      - internal/pattern command implementation
+      - Prompt templates for inspection, fixing, and design analysis
+      - Integration between inspect findings and mend fixes
+
+  - id: "99.0"
+    focus: Unscheduled
+    description: |
+      Work items not yet assigned to a release. These may be future features,
+      exploratory ideas, or items awaiting prioritization.
+    use_cases: []
+    deliverables: []
+
+# Status values for use cases:
+#   planned: Defined but not started
+#   in-progress: Currently being implemented
+#   done: Complete and verified
