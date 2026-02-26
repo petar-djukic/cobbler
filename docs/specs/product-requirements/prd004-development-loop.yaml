@@ -1,0 +1,113 @@
+id: prd004-development-loop
+title: "PRD: Development Loop"
+
+problem: |
+  The prototype script do-work.sh implements a basic iterative loop: drain the
+  task queue, call make-work when empty, repeat for N cycles. The loop has no
+  evaluation step. Path management does not exist. The five operations exist
+  independently in the architecture but there is no specification for how they
+  compose into a cycle. Human touchpoints are implicit.
+
+goals:
+  - G1: Single iterative loop composing measure, stitch, inspect, mend, and pattern
+  - G2: State machine with defined transitions between operations
+  - G3: Path health monitoring to detect codebase degradation and trigger corrective operations
+  - G4: Configurable cycles controlling how many measure-stitch iterations run before stopping
+  - G5: Failure recovery that handles task failures gracefully without aborting the loop
+  - G6: Metrics per cycle tracking tokens, tasks, LOC delta, and doc words delta
+  - G7: Human touchpoints reporting after each cycle with decisions that need judgment
+
+requirements:
+  R1:
+    title: Loop State Machine
+    items:
+      - R1.1: |
+          The development loop operates as a state machine with states: idle,
+          measuring, stitching, inspecting, mending, patterning, reporting,
+          and stopped. Transitions follow defined rules with clear triggers.
+  R2:
+    title: Default Operation Order
+    items:
+      - R2.1: |
+          Default order: measure (if queue empty or cycle start), stitch
+          (tasks available), inspect (after stitch batch), mend (if inspect
+          found issues), pattern (if path health degraded or periodic).
+  R3:
+    title: Cycle Management
+    items:
+      - R3.1: |
+          A cycle is one complete iteration. Configuration includes MaxCycles
+          (default 1), BatchSize (default 0 meaning all), PatternPeriod
+          (default 0 meaning only on degradation), and StopOnFailure
+          (default false).
+  R4:
+    title: Queue Empty Handling
+    items:
+      - R4.1: |
+          When stitch finds no ready tasks, the loop transitions to measuring.
+          Measure proposes new work, crumbs are approved to ready state, and
+          the loop returns to stitching.
+  R5:
+    title: Failure Recovery
+    items:
+      - R5.1: |
+          Single task failure: mark crumb failed, log reason, continue.
+          Multiple failures in batch (over 50%): transition to inspecting.
+          Inspect identifies pattern: transition to patterning. Mend fails
+          to fix: mark for human review, continue.
+  R6:
+    title: Path Health Monitoring
+    items:
+      - R6.1: |
+          The loop monitors test pass rate, lint violations, LOC growth rate,
+          cyclomatic complexity, and task completion rate. Degradation
+          triggers mend (for localized issues) or pattern (for structural
+          issues).
+  R7:
+    title: Operation Dispatch
+    items:
+      - R7.1: |
+          Each operation reads its definition from the cupboard as crumbs with
+          work_type=operation. Initially definitions are fixed with hardcoded
+          fallback. Pattern can propose changes to operation definitions.
+  R8:
+    title: Metrics Per Cycle
+    items:
+      - R8.1: |
+          The loop tracks per-cycle metrics: cycle number, tokens used, tasks
+          completed, tasks failed, LOC delta (production and test), doc words
+          delta, duration, and operations run.
+  R9:
+    title: Human Touchpoints
+    items:
+      - R9.1: |
+          The loop reports after each cycle with summary, metrics, decisions
+          needing judgment, recommendations, and continue options. Decision
+          types include approval, path intervention, failure triage, and
+          design review.
+  R10:
+    title: Loop Result
+    items:
+      - R10.1: |
+          When the loop completes, it returns cycles completed, aggregate
+          metrics, per-cycle details, final health state, pending decisions,
+          and recommended next actions.
+
+non_goals:
+  - Recursive operation modification in v1
+  - Parallel task execution
+  - Autonomous multi-cycle runs without human check-in
+  - DAG-based operation ordering
+  - Persistent loop state across sessions
+
+acceptance_criteria:
+  - Loop state machine defines all eight states with clear transitions
+  - Default operation order covers measure, stitch, inspect, mend, and pattern
+  - Cycle management is configurable (MaxCycles, BatchSize, PatternPeriod, StopOnFailure)
+  - Queue empty triggers measure to propose new work
+  - Failure recovery continues on single failure, inspects on multiple failures
+  - Path health indicators defined with degradation thresholds
+  - Operation dispatch loads definitions from cupboard with hardcoded fallback
+  - Metrics tracked per cycle
+  - Human touchpoint after each cycle with decisions and options
+  - Loop result includes aggregate metrics and next actions

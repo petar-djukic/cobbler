@@ -1,0 +1,198 @@
+id: specifications
+title: Cobbler Specifications
+
+overview: |
+  Cross-reference index of all cobbler product requirements, use cases, and
+  test suites. This document traces the chain from PRDs through use cases
+  to test suites, ensuring complete coverage and traceability.
+
+roadmap_summary:
+  - version: "01.0"
+    name: Core stitch (docs)
+    use_cases_done: 0
+    use_cases_total: 4
+    status: current
+  - version: "02.0"
+    name: Core stitch (code)
+    use_cases_done: 0
+    use_cases_total: 2
+    status: planned
+  - version: "03.0"
+    name: Measure
+    use_cases_done: 0
+    use_cases_total: 3
+    status: planned
+  - version: "04.0"
+    name: Inspect, mend, and pattern
+    use_cases_done: 0
+    use_cases_total: 3
+    status: planned
+
+prd_index:
+  - id: prd001-agent-interface
+    title: "PRD: Agent Interface"
+    summary: Go interface for agent invocation replacing shell-out pattern
+  - id: prd002-stitch
+    title: "PRD: Stitch"
+    summary: Execute work through agents with context assembly and quality gates
+  - id: prd003-measure
+    title: "PRD: Measure"
+    summary: Assess project state and propose new tasks replacing make-work.sh
+  - id: prd004-development-loop
+    title: "PRD: Development Loop"
+    summary: Iterative loop composing all five operations into a development cycle
+  - id: prd005-observability
+    title: "PRD: Observability and Tracing"
+    summary: OpenTelemetry tracing for all cobbler operations
+
+use_case_index:
+  - id: rel01.0-uc001-cupboard-connection
+    title: "Use Case: Cupboard Connection"
+    release: rel01.0
+    status: planned
+  - id: rel01.0-uc002-doc-task-execution
+    title: "Use Case: Documentation Task Execution"
+    release: rel01.0
+    status: planned
+  - id: rel01.0-uc003-agent-loop
+    title: "Use Case: Agent Loop"
+    release: rel01.0
+    status: planned
+  - id: rel01.0-uc004-benchmark-hello-world
+    title: "Use Case: Hello World Benchmark"
+    release: rel01.0
+    status: planned
+  - id: rel02.0-uc001-code-task-execution
+    title: "Use Case: Code Task Execution"
+    release: rel02.0
+    status: planned
+  - id: rel02.0-uc002-quality-gates
+    title: "Use Case: Quality Gates"
+    release: rel02.0
+    status: planned
+  - id: rel03.0-uc001-project-analysis
+    title: "Use Case: Project Analysis"
+    release: rel03.0
+    status: planned
+  - id: rel03.0-uc002-work-proposal
+    title: "Use Case: Work Proposal"
+    release: rel03.0
+    status: planned
+  - id: rel03.0-uc003-crumb-creation
+    title: "Use Case: Crumb Creation"
+    release: rel03.0
+    status: planned
+  - id: rel04.0-uc001-project-state-display
+    title: "Use Case: Project State Display"
+    release: rel04.0
+    status: planned
+  - id: rel04.0-uc002-test-lint-fix-loop
+    title: "Use Case: Test and Lint Fix Loop"
+    release: rel04.0
+    status: planned
+  - id: rel04.0-uc003-design-proposals
+    title: "Use Case: Design Proposals"
+    release: rel04.0
+    status: planned
+
+test_suite_index:
+  - id: test-rel01.0
+    title: "Test Suite: Release 01.0"
+    release: rel01.0
+    traces:
+      - rel01.0-uc001-cupboard-connection
+      - rel01.0-uc002-doc-task-execution
+      - rel01.0-uc003-agent-loop
+      - rel01.0-uc004-benchmark-hello-world
+    test_case_count: 4
+    path: docs/specs/test-suites/test-rel01.0.yaml
+  - id: test-rel02.0
+    title: "Test Suite: Release 02.0"
+    release: rel02.0
+    traces:
+      - rel02.0-uc001-code-task-execution
+      - rel02.0-uc002-quality-gates
+    test_case_count: 4
+    path: docs/specs/test-suites/test-rel02.0.yaml
+  - id: test-rel03.0
+    title: "Test Suite: Release 03.0"
+    release: rel03.0
+    traces:
+      - rel03.0-uc001-project-analysis
+      - rel03.0-uc002-work-proposal
+      - rel03.0-uc003-crumb-creation
+    test_case_count: 5
+    path: docs/specs/test-suites/test-rel03.0.yaml
+  - id: test-rel04.0
+    title: "Test Suite: Release 04.0"
+    release: rel04.0
+    traces:
+      - rel04.0-uc001-project-state-display
+      - rel04.0-uc002-test-lint-fix-loop
+      - rel04.0-uc003-design-proposals
+    test_case_count: 4
+    path: docs/specs/test-suites/test-rel04.0.yaml
+
+prd_to_use_case_mapping:
+  - use_case: rel01.0-uc001-cupboard-connection
+    prd: prd001-agent-interface
+    why_required: Cupboard connection uses interfaces defined in the agent interface PRD
+    coverage: partial
+  - use_case: rel01.0-uc002-doc-task-execution
+    prd: prd002-stitch
+    why_required: Documentation task execution is the primary stitch workflow
+    coverage: full
+  - use_case: rel01.0-uc003-agent-loop
+    prd: prd001-agent-interface
+    why_required: Agent conversation loop implements the Agent.Run interface
+    coverage: full
+  - use_case: rel01.0-uc004-benchmark-hello-world
+    prd: prd001-agent-interface
+    why_required: Benchmark exercises the agent interface end-to-end
+    coverage: partial
+  - use_case: rel01.0-uc004-benchmark-hello-world
+    prd: prd002-stitch
+    why_required: Benchmark validates stitch workflow with quality gates
+    coverage: partial
+  - use_case: rel02.0-uc001-code-task-execution
+    prd: prd002-stitch
+    why_required: Code task execution uses stitch worktree management
+    coverage: full
+  - use_case: rel02.0-uc002-quality-gates
+    prd: prd002-stitch
+    why_required: Quality gates are a stitch requirement for code tasks
+    coverage: full
+  - use_case: rel03.0-uc001-project-analysis
+    prd: prd003-measure
+    why_required: Project analysis is the first phase of the measure workflow
+    coverage: full
+  - use_case: rel03.0-uc002-work-proposal
+    prd: prd003-measure
+    why_required: Work proposal is the agent dispatch phase of measure
+    coverage: full
+  - use_case: rel03.0-uc003-crumb-creation
+    prd: prd003-measure
+    why_required: Crumb creation is the write-back phase of measure
+    coverage: full
+  - use_case: rel04.0-uc001-project-state-display
+    prd: prd004-development-loop
+    why_required: Inspect is a state in the development loop state machine
+    coverage: partial
+  - use_case: rel04.0-uc002-test-lint-fix-loop
+    prd: prd004-development-loop
+    why_required: Mend implements failure recovery in the development loop
+    coverage: full
+  - use_case: rel04.0-uc003-design-proposals
+    prd: prd004-development-loop
+    why_required: Pattern is triggered by path health degradation in the loop
+    coverage: partial
+  - use_case: rel04.0-uc003-design-proposals
+    prd: prd005-observability
+    why_required: Pattern uses trace data for design analysis
+    coverage: partial
+
+coverage_gaps: |
+  All five PRDs are referenced by at least one use case. prd005-observability
+  has limited direct use case coverage (only rel04.0-uc003 references it);
+  observability integration testing will require dedicated test infrastructure
+  with an OTLP collector.

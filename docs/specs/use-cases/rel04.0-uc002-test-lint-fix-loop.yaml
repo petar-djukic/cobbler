@@ -1,0 +1,39 @@
+id: rel04.0-uc002-test-lint-fix-loop
+title: "Use Case: Test and Lint Fix Loop"
+
+summary: |
+  After inspect identifies failing tests or lint violations, cobbler mend
+  invokes an agent to fix the issues. The loop repeats until fixes pass
+  quality gates or retry limits are reached.
+
+actor: Developer running cobbler mend or development loop
+
+trigger: |
+  Inspect found failing tests, lint violations, or other quality issues that
+  can be fixed automatically.
+
+flow:
+  - F1: "Inspect identifies specific test failures or lint violations."
+  - F2: "Cobbler creates or claims a mend crumb with the findings."
+  - F3: "The context assembler gathers failing test files, lint output, and relevant source code."
+  - F4: "Cobbler dispatches the agent with a fix prompt including error details."
+  - F5: "Agent produces code changes to fix the issues."
+  - F6: "Cobbler runs quality gates to verify the fix."
+  - F7: "On success, cobbler updates the crumb to completed. On failure, the loop retries or marks for human review."
+
+touchpoints:
+  - T1: "Mend command fixes issues found by inspect (prd004-development-loop R1, R5)"
+  - T2: "Quality gates validate fixes before closing (prd004-development-loop R6)"
+
+success_criteria:
+  - S1: "Mend agent receives specific error details, not generic prompts"
+  - S2: "Quality gates pass after fix"
+  - S3: "Failed fixes are marked for human review"
+  - S4: "Retry limits prevent infinite fix loops"
+
+out_of_scope:
+  - Architectural refactoring (covered by pattern)
+  - Test creation for untested code
+  - Manual code review
+
+test_suite: test-rel04.0

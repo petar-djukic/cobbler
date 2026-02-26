@@ -1,0 +1,36 @@
+id: rel03.0-uc003-crumb-creation
+title: "Use Case: Crumb Creation"
+
+summary: |
+  After proposals are validated, cobbler writes approved crumbs to the cupboard
+  in pending state. In review mode, proposals are displayed without writing.
+
+actor: Developer running cobbler measure
+
+trigger: |
+  Planning agent has produced validated proposals.
+
+flow:
+  - F1: "Cobbler receives validated proposals from the planning agent."
+  - F2: "In review mode, cobbler displays proposals for human inspection and exits."
+  - F3: "In write mode, cobbler iterates through proposals and calls Table.Set for each."
+  - F4: "Each crumb is created with state=pending, work_type property, and release assignment."
+  - F5: "Cobbler returns the list of created crumb IDs."
+  - F6: "Human reviews pending crumbs and transitions approved ones to ready state."
+
+touchpoints:
+  - T1: "Cupboard write-back creates crumbs via Table.Set (prd003-measure R5)"
+  - T2: "Work type assignment ensures every crumb has a type property (prd003-measure R6)"
+
+success_criteria:
+  - S1: "Review mode displays proposals without writing to cupboard"
+  - S2: "Write mode creates crumbs with state=pending"
+  - S3: "Every created crumb has work_type property set"
+  - S4: "Created crumb IDs are returned for tracking"
+
+out_of_scope:
+  - Automatic transition from pending to ready
+  - Dependency ordering between proposals
+  - Duplicate detection
+
+test_suite: test-rel03.0

@@ -1,0 +1,108 @@
+id: prd003-measure
+title: "PRD: Measure"
+
+problem: |
+  The prototype script make-work.sh assesses project state and proposes new
+  tasks by invoking Claude with a monolithic prompt. No structured project state
+  reader exists. Context assembly is everything-at-once. Output goes through an
+  intermediate JSON file. Work type is implicit. Roadmap alignment is advisory
+  with no enforcement.
+
+goals:
+  - G1: Structured project state reader that collects VISION, ARCHITECTURE, roadmap, and cupboard state before agent invocation
+  - G2: Curated context for the planning agent filtered by current release focus and relevance
+  - G3: Direct cupboard write-back with no intermediate JSON file
+  - G4: Work type assignment on each proposed crumb (planning, documentation, coding, operations)
+  - G5: Roadmap-aware proposals that map issues to use cases with unassigned work defaulting to release 99.0
+  - G6: Review mode option to output proposals for human review before writing to cupboard
+
+requirements:
+  R1:
+    title: Project State Reader
+    items:
+      - R1.1: |
+          Measure reads project state from known locations into a structured
+          ProjectState representation including Vision, Architecture, Roadmap,
+          Crumbs, and Stats.
+      - R1.2: |
+          The reader runs before agent invocation so the agent receives curated
+          input rather than discovering files itself.
+  R2:
+    title: Context Assembly
+    items:
+      - R2.1: |
+          Measure assembles curated context filtered by current release and
+          planning scope. Includes current release, incomplete use cases,
+          relevant in-flight work, recent completions, project stats, and
+          vision/architecture excerpts.
+  R3:
+    title: Agent Dispatch
+    items:
+      - R3.1: |
+          Measure invokes the agent interface with a planning prompt
+          constructed from PlanningContext fields. The agent analyzes project
+          state and outputs proposed crumbs.
+  R4:
+    title: Proposal Format
+    items:
+      - R4.1: |
+          Each proposal includes title, description, work type (required),
+          and optional priority, release, use case, and labels.
+  R5:
+    title: Cupboard Write-Back
+    items:
+      - R5.1: |
+          In write mode, measure writes approved proposals directly to the
+          cupboard via Table.Set. Each crumb is created with state=pending.
+  R6:
+    title: Work Type Assignment
+    items:
+      - R6.1: |
+          Every proposed crumb must have a work_type property set to one of
+          planning, documentation, coding, or operations. Invalid types cause
+          the proposal to be rejected.
+  R7:
+    title: Roadmap Alignment
+    items:
+      - R7.1: |
+          Measure validates release assignments against known releases.
+          Unknown releases default to 99.0 with a warning. Use cases not in
+          the roadmap are allowed but flagged.
+  R8:
+    title: Review Mode
+    items:
+      - R8.1: |
+          In review mode, proposals are displayed for human review without
+          writing to the cupboard.
+  R9:
+    title: Issue Limit
+    items:
+      - R9.1: |
+          Measure accepts a configurable limit on proposals per invocation
+          (default 10). Excess proposals are trimmed by priority.
+  R10:
+    title: Planning Prompt Template
+    items:
+      - R10.1: |
+          Measure uses a Go template stored as a crumb with
+          work_type=template, with fallback to an embedded default.
+
+non_goals:
+  - Autonomous approval in v1; crumbs are created in pending state
+  - Multi-project analysis
+  - Modifying the roadmap or VISION
+  - Running stitch after measure
+  - Dependency ordering
+
+acceptance_criteria:
+  - Project state reader extracts VISION, ARCHITECTURE, roadmap, crumbs, and stats
+  - Roadmap parser identifies current release, incomplete use cases, and release status
+  - Context assembly filters by current release focus
+  - Agent dispatch uses Agent interface from prd001-agent-interface
+  - Proposal format requires title, description, and work_type
+  - Cupboard write-back creates crumbs with state=pending
+  - Work type property set on every created crumb
+  - Roadmap alignment validation warns on unknown releases
+  - Review mode outputs proposals without writing
+  - Issue limit configurable with default 10
+  - Template system loads from cupboard or falls back to embedded default

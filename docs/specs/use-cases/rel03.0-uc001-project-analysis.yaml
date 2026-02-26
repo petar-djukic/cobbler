@@ -1,0 +1,38 @@
+id: rel03.0-uc001-project-analysis
+title: "Use Case: Project Analysis"
+
+summary: |
+  A developer runs cobbler measure. Cobbler reads VISION, ARCHITECTURE, roadmap,
+  and cupboard state into a structured representation before invoking the
+  planning agent.
+
+actor: Developer running cobbler measure
+
+trigger: |
+  Developer invokes cobbler measure to assess project state and propose new
+  tasks.
+
+flow:
+  - F1: "Developer runs cobbler measure."
+  - F2: "Cobbler reads VISION.yaml and extracts goals, boundaries, and success criteria."
+  - F3: "Cobbler reads ARCHITECTURE.yaml and extracts components, interfaces, and implementation status."
+  - F4: "Cobbler parses road-map.yaml to identify current release, releases, and use case completion."
+  - F5: "Cobbler queries the cupboard for existing crumbs with state and work type metadata."
+  - F6: "Cobbler runs stats collection for LOC and documentation metrics."
+  - F7: "All data is assembled into a ProjectState struct for the planning agent."
+
+touchpoints:
+  - T1: "Project state reader collects structured input from known file locations (prd003-measure R1)"
+  - T2: "Cupboard.GetTable(crumbs).Fetch() retrieves existing work items (prd003-measure R1)"
+
+success_criteria:
+  - S1: "ProjectState struct populated with vision, architecture, roadmap, crumbs, and stats"
+  - S2: "Roadmap parser identifies current release and incomplete use cases"
+  - S3: "Crumb summaries include state, work type, and release assignment"
+
+out_of_scope:
+  - Multi-project analysis
+  - Modifying the roadmap
+  - Agent invocation (covered by uc002-work-proposal)
+
+test_suite: test-rel03.0

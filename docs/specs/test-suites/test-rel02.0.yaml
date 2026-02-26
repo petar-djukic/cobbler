@@ -1,0 +1,59 @@
+id: test-rel02.0
+title: "Test Suite: Release 02.0 — Core Stitch (Code)"
+release: rel02.0
+
+traces:
+  - rel02.0-uc001-code-task-execution
+  - rel02.0-uc002-quality-gates
+
+preconditions:
+  - Go toolchain installed
+  - Git available for worktree operations
+  - golangci-lint installed for lint gate
+  - Cupboard accessible with ready coding crumbs
+
+test_cases:
+  - use_case: rel02.0-uc001-code-task-execution
+    name: Code task with worktree isolation
+    description: Execute a coding crumb in a git worktree and merge on success.
+    inputs:
+      work_type: coding
+      crumb_state: ready
+    expected:
+      worktree_created: true
+      branch_name_matches: "task/*"
+      crumb_final_state: completed
+      branch_merged: true
+      worktree_cleaned: true
+
+  - use_case: rel02.0-uc001-code-task-execution
+    name: Worktree cleanup on failure
+    description: Verify worktree is cleaned up when agent fails.
+    inputs:
+      work_type: coding
+      simulate_agent_failure: true
+    expected:
+      crumb_final_state: failed
+      worktree_cleaned: true
+      branch_not_merged: true
+
+  - use_case: rel02.0-uc002-quality-gates
+    name: All quality gates pass
+    description: Run quality gates on valid code and verify all pass.
+    inputs:
+      code_valid: true
+    expected:
+      test_gate_passed: true
+      lint_gate_passed: true
+      build_gate_passed: true
+      merge_allowed: true
+
+  - use_case: rel02.0-uc002-quality-gates
+    name: Quality gate failure prevents merge
+    description: Verify that a failing test prevents merge.
+    inputs:
+      code_has_test_failure: true
+    expected:
+      test_gate_passed: false
+      merge_allowed: false
+      failure_reason_recorded: true

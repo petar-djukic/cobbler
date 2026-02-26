@@ -1,0 +1,119 @@
+id: prd002-stitch
+title: "PRD: Stitch"
+
+problem: |
+  The prototype script do-work.sh executes tasks by picking an issue from beads,
+  creating a git worktree, piping a prompt to Claude, merging the result, and
+  closing the issue. Prompt construction happens through bash string
+  concatenation with no distinction between work types. No context management
+  exists. Quality gates are absent. The worktree workflow is implicit in bash
+  control flow with no structured cleanup. Token tracking does not exist.
+
+goals:
+  - G1: Work type routing with different context assembly strategies for documentation, coding, and operations
+  - G2: Minimal context per task assembling only relevant files, PRDs, and rules
+  - G3: Template-driven prompts using Go templates stored as crumbs and swappable per work type
+  - G4: Quality gates before closing (tests, linter, build for code tasks)
+  - G5: Git worktree isolation for code tasks with proper lifecycle management
+  - G6: Proper lifecycle management with atomic claim, release on failure, and token/LOC tracking
+
+requirements:
+  R1:
+    title: Task Picker
+    items:
+      - R1.1: |
+          Stitch queries the cupboard for crumbs in the ready state, filtered
+          by work type if specified. The picker selects one crumb based on
+          priority and work type compatibility.
+  R2:
+    title: Claim and Release
+    items:
+      - R2.1: |
+          Stitch claims a crumb by setting state to taken atomically. If the
+          crumb state changed between fetch and update, the claim fails and
+          stitch picks again.
+      - R2.2: |
+          Release sets state back to ready or failed and records the reason
+          in crumb metadata.
+  R3:
+    title: Context Assembler
+    items:
+      - R3.1: |
+          The context assembler gathers files relevant to a task based on its
+          work type. Documentation tasks get style guides and PRDs; coding
+          tasks get source files and tests; operations tasks get configs and
+          build output.
+  R4:
+    title: Prompt Builder
+    items:
+      - R4.1: |
+          The prompt builder constructs prompts from Go templates with
+          substitution from crumb fields and assembled context. Template
+          variables include TaskID, TaskTitle, TaskDescription, TaskType,
+          AcceptanceCriteria, RequiredReading, Rules, and PRDContext.
+  R5:
+    title: Agent Dispatch
+    items:
+      - R5.1: |
+          Stitch invokes the agent interface with the assembled prompt and
+          registered tools. Tools are registered per work type.
+  R6:
+    title: Git Worktree Management
+    items:
+      - R6.1: |
+          For coding tasks, stitch creates a git worktree on a branch named
+          after the task ID. On success, stitch merges the branch; on failure,
+          stitch cleans up without merging.
+      - R6.2: |
+          Worktree lifecycle covers create branch, add worktree, run agent,
+          run quality gates, merge, and cleanup with proper error recovery
+          at each step.
+  R7:
+    title: Quality Gate Execution
+    items:
+      - R7.1: |
+          Before marking a coding task completed, stitch runs quality gates:
+          tests, linter, and build. All gates must pass. Quality gate
+          configuration allows customization and per-gate skip.
+  R8:
+    title: Crumb State Transitions
+    items:
+      - R8.1: |
+          Stitch manages crumb state through the task lifecycle: ready to
+          taken (claim), taken to completed (quality gates pass, merge
+          succeeds), taken to failed (error or gate failure), taken to ready
+          (release on retryable failure).
+  R9:
+    title: Token and LOC Tracking
+    items:
+      - R9.1: |
+          Stitch tracks token usage and lines-of-code changes for each task.
+          Metrics include total tokens, LOC delta, production LOC, test LOC,
+          doc words delta, duration, and agent invocations.
+  R10:
+    title: Template System
+    items:
+      - R10.1: |
+          Prompt templates are stored as crumbs in the cupboard with
+          work_type=template. Stitch loads the appropriate template at runtime
+          with fallback to embedded defaults.
+
+non_goals:
+  - Parallel task execution in v1
+  - Modifying templates during stitch execution
+  - Integration with measure
+  - Interactive agent sessions
+  - Automatic retries of failed tasks
+
+acceptance_criteria:
+  - Task picker queries cupboard for ready crumbs with optional work type filter
+  - Claim sets crumb state to taken atomically; release restores to ready or failed
+  - Context assembly strategy differs by work type
+  - Prompt builder uses Go templates with crumb field and context substitution
+  - Agent dispatch uses the Agent interface from prd001-agent-interface
+  - Tools registered per work type
+  - Git worktree created for coding tasks with proper lifecycle
+  - Quality gates run before closing coding tasks
+  - State transitions follow ready to taken to completed/failed pattern
+  - Token and LOC tracking per task recorded in crumb metadata
+  - Templates stored as crumbs with fallback to embedded defaults

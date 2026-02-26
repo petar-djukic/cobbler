@@ -1,0 +1,55 @@
+id: test-rel04.0
+title: "Test Suite: Release 04.0 — Inspect, Mend, and Pattern"
+release: rel04.0
+
+traces:
+  - rel04.0-uc001-project-state-display
+  - rel04.0-uc002-test-lint-fix-loop
+  - rel04.0-uc003-design-proposals
+
+preconditions:
+  - Stitch has completed at least one task cycle
+  - Quality gate tools available (go test, golangci-lint, go build)
+  - Cupboard contains recent crumb state transitions
+
+test_cases:
+  - use_case: rel04.0-uc001-project-state-display
+    name: Inspect displays recent outcomes
+    description: Verify inspect collects and displays recent task outcomes.
+    inputs:
+      recent_crumbs_exist: true
+    expected:
+      report_generated: true
+      recent_outcomes_included: true
+      quality_metrics_present: true
+      no_code_changes_made: true
+
+  - use_case: rel04.0-uc002-test-lint-fix-loop
+    name: Mend fixes failing tests
+    description: Verify mend agent receives error details and produces a fix.
+    inputs:
+      test_failure: "TestFoo expected 42 got 0"
+    expected:
+      fix_attempted: true
+      quality_gates_rerun: true
+      crumb_state_on_success: completed
+
+  - use_case: rel04.0-uc002-test-lint-fix-loop
+    name: Mend retry limit
+    description: Verify mend stops after retry limit and marks for human review.
+    inputs:
+      persistent_failure: true
+      max_retries: 2
+    expected:
+      retries_attempted: 2
+      marked_for_human_review: true
+
+  - use_case: rel04.0-uc003-design-proposals
+    name: Pattern produces design proposals
+    description: Verify pattern agent outputs actionable design proposals.
+    inputs:
+      path_health_degraded: true
+    expected:
+      proposals_generated: true
+      proposals_are_crumbs: true
+      proposals_actionable: true

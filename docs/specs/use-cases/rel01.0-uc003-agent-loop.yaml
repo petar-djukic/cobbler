@@ -1,0 +1,40 @@
+id: rel01.0-uc003-agent-loop
+title: "Use Case: Agent Loop"
+
+summary: |
+  Cobbler runs the agent conversation loop: sends a prompt, receives a response,
+  executes tool calls, sends results back, and repeats until the agent signals
+  completion. Token usage is tracked across the loop.
+
+actor: Developer running cobbler stitch
+
+trigger: |
+  Cobbler dispatches a task to the agent after assembling context and building
+  a prompt.
+
+flow:
+  - F1: "Cobbler constructs an initial Request with the prompt as a user message and available tools."
+  - F2: "Cobbler calls Agent.Run with the request."
+  - F3: "Agent returns a Response with content and possibly tool calls."
+  - F4: "If Response has ToolCalls, cobbler executes each tool and collects results."
+  - F5: "Cobbler appends tool results as tool_result messages and calls Agent.Run again."
+  - F6: "Loop repeats until StopReason is complete or an error occurs."
+  - F7: "Cobbler records cumulative token usage from all Agent.Run calls."
+
+touchpoints:
+  - T1: "Agent.Run sends prompt to LLM and returns structured response (prd001-agent-interface R1, R3)"
+  - T2: "Tool.Execute runs requested tool with arguments (prd001-agent-interface R2)"
+  - T3: "ExecutionMetrics tracks cumulative tokens and invocations (prd001-agent-interface R7)"
+
+success_criteria:
+  - S1: "Agent conversation loop completes without error"
+  - S2: "Tool calls execute successfully and results are sent back to the agent"
+  - S3: "Cumulative token usage reflects all Agent.Run calls"
+  - S4: "StopReason is complete when the agent finishes"
+
+out_of_scope:
+  - Multi-agent coordination
+  - Agent memory persistence across tasks
+  - Streaming UI for agent responses
+
+test_suite: test-rel01.0

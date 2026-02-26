@@ -1,0 +1,113 @@
+id: prd001-agent-interface
+title: "PRD: Agent Interface"
+
+problem: |
+  The prototype scripts (do-work.sh, make-work.sh) invoke coding agents by
+  piping prompts to the claude CLI. No type safety exists between cobbler and
+  the agent. Prompts are assembled through bash string concatenation, tool
+  registrations happen implicitly through the CLI environment, and responses
+  come back as unstructured JSON streams. Error handling reduces to checking
+  exit codes. Context assembly and agent invocation are tangled together. Token
+  usage is not tracked.
+
+goals:
+  - G1: Type-safe agent invocation from Go code
+  - G2: Explicit tool registration with typed arguments and return values
+  - G3: Structured responses that distinguish content from tool calls
+  - G4: Token usage tracking per invocation and cumulative
+  - G5: Error types that distinguish agent failures, tool failures, timeouts, and rate limits
+  - G6: Clean separation between prompt construction and agent execution
+
+requirements:
+  R1:
+    title: Agent Interface
+    items:
+      - R1.1: |
+          Agent interface abstracts LLM providers with a Run method that accepts
+          context, request (messages, tools, config), and returns response with
+          content, tool calls, usage, and stop reason.
+      - R1.2: |
+          Request struct includes Messages (conversation history), Tools
+          (available tools), and Config (per-request overrides for max tokens
+          and temperature).
+  R2:
+    title: Tool Interface
+    items:
+      - R2.1: |
+          Tool interface declares Name, Description, Parameters (JSON Schema),
+          and Execute methods. The executor calls Execute when the agent
+          requests a tool.
+  R3:
+    title: Response Struct
+    items:
+      - R3.1: |
+          Response contains Content (generated text), ToolCalls (requested
+          invocations), Usage (input and output token counts), and StopReason
+          (complete, tool_use, or max_tokens).
+      - R3.2: |
+          ToolCall struct includes ID, ToolName, and Arguments map.
+  R4:
+    title: Conversation Loop
+    items:
+      - R4.1: |
+          The executor manages the conversation loop: send prompt, execute tool
+          calls, send results, repeat until the agent signals completion.
+      - R4.2: |
+          Message types defined for user, assistant, and tool_result roles with
+          content and optional ToolCallID.
+  R5:
+    title: Claude Implementation
+    items:
+      - R5.1: |
+          Claude implementation in internal/claude uses anthropic-sdk-go to
+          translate between Agent interface and Anthropic API.
+      - R5.2: |
+          Implementation handles request translation, tool schema conversion,
+          response parsing, streaming, and retry on transient errors.
+  R6:
+    title: Timeout and Cancellation
+    items:
+      - R6.1: |
+          All Agent methods accept context.Context for timeout and
+          cancellation. The agent implementation checks ctx.Done() during
+          long operations.
+  R7:
+    title: Token Tracking
+    items:
+      - R7.1: |
+          Agent tracks token usage per invocation. The executor accumulates
+          usage across the conversation loop via ExecutionMetrics struct.
+  R8:
+    title: Error Types
+    items:
+      - R8.1: |
+          AgentError wraps errors with ErrorKind enumeration: agent, tool,
+          timeout, rate_limit, network, invalid.
+      - R8.2: |
+          Executor uses error kind to decide retry strategy.
+  R9:
+    title: Configuration
+    items:
+      - R9.1: |
+          AgentConfig covers provider selection, model, default parameters,
+          timeouts, and API key. Configuration loads from config file via viper
+          with environment variable fallbacks.
+
+non_goals:
+  - Multi-provider support beyond interface definition in v1
+  - Streaming UI; the interface returns complete responses
+  - Prompt construction; covered by stitch PRD
+  - Persisting agent memory across invocations
+  - Agent orchestration or multi-agent patterns
+
+acceptance_criteria:
+  - Agent interface defined in pkg/agent/agent.go with Run method
+  - Tool interface defined in pkg/agent/tool.go with Name, Description, Parameters, Execute
+  - Response struct includes Content, ToolCalls, Usage, StopReason
+  - Message types defined for conversation history (user, assistant, tool_result)
+  - Error types defined with ErrorKind enumeration
+  - AgentConfig struct covers model, parameters, timeout, credentials
+  - Conversation loop state machine documented
+  - Token tracking requirements specify per-invocation and cumulative metrics
+  - Claude implementation requirements specify translation, streaming, retry responsibilities
+  - All code signatures use context.Context for cancellation

@@ -1,0 +1,66 @@
+id: test-rel03.0
+title: "Test Suite: Release 03.0 — Measure"
+release: rel03.0
+
+traces:
+  - rel03.0-uc001-project-analysis
+  - rel03.0-uc002-work-proposal
+  - rel03.0-uc003-crumb-creation
+
+preconditions:
+  - Project has VISION.yaml, ARCHITECTURE.yaml, and road-map.yaml
+  - Cupboard accessible
+  - Planning agent available
+
+test_cases:
+  - use_case: rel03.0-uc001-project-analysis
+    name: Project state collection
+    description: Verify all project state sources are read into ProjectState.
+    inputs:
+      vision_exists: true
+      architecture_exists: true
+      roadmap_exists: true
+    expected:
+      vision_loaded: true
+      architecture_loaded: true
+      roadmap_parsed: true
+      stats_collected: true
+
+  - use_case: rel03.0-uc002-work-proposal
+    name: Planning agent produces valid proposals
+    description: Verify agent returns proposals with required fields.
+    inputs:
+      planning_context: current_release
+    expected:
+      proposals_non_empty: true
+      all_have_title: true
+      all_have_description: true
+      all_have_work_type: true
+
+  - use_case: rel03.0-uc002-work-proposal
+    name: Invalid work type rejected
+    description: Verify proposals with invalid work types are rejected.
+    inputs:
+      proposal_work_type: invalid_type
+    expected:
+      proposal_rejected: true
+      error_message_present: true
+
+  - use_case: rel03.0-uc003-crumb-creation
+    name: Review mode displays without writing
+    description: Verify review mode does not write to cupboard.
+    inputs:
+      review_mode: true
+    expected:
+      proposals_displayed: true
+      crumbs_created: 0
+
+  - use_case: rel03.0-uc003-crumb-creation
+    name: Write mode creates pending crumbs
+    description: Verify write mode creates crumbs with state=pending.
+    inputs:
+      review_mode: false
+    expected:
+      crumbs_created_positive: true
+      all_crumbs_state: pending
+      all_crumbs_have_work_type: true

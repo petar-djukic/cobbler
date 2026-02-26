@@ -1,0 +1,38 @@
+id: rel02.0-uc002-quality-gates
+title: "Use Case: Quality Gates"
+
+summary: |
+  After an agent completes a coding task, cobbler runs quality gates (tests,
+  linter, build) in the worktree before merging. All gates must pass for the
+  task to be marked completed.
+
+actor: Developer running cobbler stitch for code tasks
+
+trigger: |
+  Agent completes code generation in a git worktree and cobbler proceeds to
+  validation.
+
+flow:
+  - F1: "Agent finishes producing code changes in the worktree."
+  - F2: "Cobbler runs go test ./... in the worktree."
+  - F3: "Cobbler runs golangci-lint run in the worktree."
+  - F4: "Cobbler runs go build ./... in the worktree."
+  - F5: "If all gates pass, cobbler proceeds with merge. If any gate fails, cobbler marks the crumb failed."
+  - F6: "Gate results (pass/fail, output) are recorded in crumb metadata."
+
+touchpoints:
+  - T1: "Quality gate execution validates code before closing (prd002-stitch R7)"
+  - T2: "Crumb state transition to completed or failed based on gate results (prd002-stitch R8)"
+
+success_criteria:
+  - S1: "All three quality gates execute in the worktree"
+  - S2: "Gate failure prevents merge and records failure reason"
+  - S3: "Gate success allows merge and completion"
+  - S4: "Quality gate configuration allows per-gate skip"
+
+out_of_scope:
+  - Custom quality gate commands beyond test/lint/build
+  - Automatic fixing of gate failures
+  - Documentation task quality gates
+
+test_suite: test-rel02.0

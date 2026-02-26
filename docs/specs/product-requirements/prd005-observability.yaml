@@ -1,0 +1,132 @@
+id: prd005-observability
+title: "PRD: Observability and Tracing"
+
+problem: |
+  Cobbler runs iterative loops dispatching agents one-shot. Without structured
+  observability, we cannot answer which steps succeeded, which failed, where
+  context was insufficient, or how the inductive path evolved. The development
+  loop tracks aggregate metrics per cycle but not the shape of execution.
+  Crumbs trails record task-level sequences but not execution details within
+  each task. Debugging without tracing is guesswork. Template comparison
+  lacks data.
+
+goals:
+  - G1: Span-based tracing for all cobbler operations (measure, stitch, inspect, mend, pattern)
+  - G2: Hierarchical span structure from loop to cycle to operation to agent invocation to tool call
+  - G3: Attributes on each span covering operation type, crumb ID, context size, outcome, and duration
+  - G4: Export to OTLP endpoint with configurable collector
+  - G5: Local JSON trace fallback when no collector is available
+  - G6: Visualization with operation timelines, success/failure coloring, and drill-down
+  - G7: Trail integration linking spans to crumbs trails for correlation
+
+requirements:
+  R1:
+    title: OpenTelemetry Integration
+    items:
+      - R1.1: |
+          Cobbler initializes an OpenTelemetry tracer at startup. Configuration
+          covers enabled flag, service name, OTLP endpoint, sample rate, and
+          local trace path.
+  R2:
+    title: Span Hierarchy
+    items:
+      - R2.1: |
+          Traces follow a consistent hierarchy: loop (root), cycle/{n},
+          operation (measure/stitch/inspect/mend/pattern), phase
+          (claim/context-assembly/dispatch/quality-gate), agent-run/{n},
+          and tool-call/{name}.
+  R3:
+    title: Standard Span Attributes
+    items:
+      - R3.1: |
+          Every span carries cobbler.version, cobbler.operation, outcome,
+          and error.message. Operation-specific spans add crumb.id,
+          work_type, template.name, token counts, and durations.
+  R4:
+    title: Loop and Cycle Tracing
+    items:
+      - R4.1: |
+          The development loop creates a root span. Each cycle creates a
+          child span recording tasks completed/failed, tokens used, LOC
+          delta, and duration.
+  R5:
+    title: Operation Tracing
+    items:
+      - R5.1: |
+          Each operation creates a span under the current cycle capturing
+          operation-level inputs and outputs. Each phase within an operation
+          creates a child span.
+  R6:
+    title: Agent Invocation Tracing
+    items:
+      - R6.1: |
+          Agent.Run calls create spans under the dispatch phase with token
+          counts and tool call counts.
+  R7:
+    title: Tool Call Tracing
+    items:
+      - R7.1: |
+          Each tool execution creates a span under agent-run capturing tool
+          name, duration, and success status. Sensitive data in arguments
+          must not appear in span attributes.
+  R8:
+    title: OTLP Export
+    items:
+      - R8.1: |
+          When OTLPEndpoint is configured, cobbler exports spans to an
+          OpenTelemetry collector using gRPC with HTTP fallback.
+  R9:
+    title: Local JSON Fallback
+    items:
+      - R9.1: |
+          When no OTLP endpoint is configured or unreachable, cobbler writes
+          traces to local JSON files with trace_id, spans array, attributes,
+          status, and events.
+  R10:
+    title: Visualization
+    items:
+      - R10.1: |
+          Built-in trace viewer supports timeline (ASCII art), tree
+          (hierarchical), and summary (aggregated statistics) formats.
+          External tools (Jaeger, Grafana Tempo) supported via OTLP export.
+  R11:
+    title: Trail Integration
+    items:
+      - R11.1: |
+          Spans link to crumbs trails via trail.id attribute. Enables
+          correlation between task sequence and execution details for
+          comparing context strategies.
+  R12:
+    title: Error Recording
+    items:
+      - R12.1: |
+          Errors are recorded as span events with error type, message,
+          stack trace, and cause. Error chain is preserved for debugging.
+  R13:
+    title: Metrics Derived from Traces
+    items:
+      - R13.1: |
+          Aggregate metrics derived from trace data: operation counts,
+          success rates, average durations, token distribution, and tool
+          call frequency.
+
+non_goals:
+  - Custom tracing backend; we export to standard OTLP collectors
+  - Real-time monitoring or alerting
+  - Replacing crumbs trails with traces; they complement each other
+  - Tracing external systems
+  - Distributed tracing across multiple cobbler instances
+
+acceptance_criteria:
+  - OpenTelemetry tracer initialized at startup with file and environment configuration
+  - Span hierarchy covers loop, cycle, operation, phase, agent-run, and tool-call
+  - Common attributes on all spans
+  - Operation-specific attributes recorded
+  - Agent.Run calls create spans with token and tool call counts
+  - Tool executions create spans with name, duration, and success
+  - OTLP export to configurable endpoint
+  - Local JSON traces written when no collector available
+  - Built-in trace viewer with timeline, tree, and summary formats
+  - Spans link to crumbs trails
+  - Errors recorded with type, message, and cause
+  - Derived metrics computed from trace data

@@ -1,0 +1,38 @@
+id: rel04.0-uc001-project-state-display
+title: "Use Case: Project State Display"
+
+summary: |
+  A developer runs cobbler inspect to view the current project state and
+  evaluate recent work. Inspect displays recent task outcomes, quality
+  metrics, and path health indicators.
+
+actor: Developer running cobbler inspect
+
+trigger: |
+  Developer invokes cobbler inspect to evaluate output from recent stitch
+  executions.
+
+flow:
+  - F1: "Developer runs cobbler inspect."
+  - F2: "Cobbler collects recent crumb state transitions from the cupboard."
+  - F3: "Cobbler runs quality assessments: test results, lint status, build status."
+  - F4: "Cobbler invokes an agent with inspection prompts to evaluate recent work."
+  - F5: "Agent analyzes outputs and reports findings without making changes."
+  - F6: "Cobbler displays the inspection report with findings and recommendations."
+
+touchpoints:
+  - T1: "Development loop state machine transitions to inspecting after stitch batch (prd004-development-loop R1, R2)"
+  - T2: "Path health monitoring collects quality indicators (prd004-development-loop R6)"
+
+success_criteria:
+  - S1: "Inspection report includes recent task outcomes"
+  - S2: "Quality metrics (test pass rate, lint violations) are reported"
+  - S3: "Findings are displayed without making code changes"
+  - S4: "Report includes actionable recommendations"
+
+out_of_scope:
+  - Automatic fixing of issues (covered by mend)
+  - Historical trend analysis
+  - Real-time monitoring
+
+test_suite: test-rel04.0

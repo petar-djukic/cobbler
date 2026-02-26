@@ -1,0 +1,34 @@
+id: rel01.0-uc001-cupboard-connection
+title: "Use Case: Cupboard Connection"
+
+summary: |
+  A developer runs cobbler and it connects to the crumbs cupboard via Go module
+  import, attaches to a backend, and verifies it can read and write crumbs.
+
+actor: Developer running cobbler
+
+trigger: |
+  Developer invokes any cobbler command that requires cupboard access.
+
+flow:
+  - F1: "Developer runs a cobbler command (e.g., cobbler stitch)."
+  - F2: "Cobbler initializes the cupboard by calling sqlite.NewCupboard() and Attach with the configured backend."
+  - F3: "Cobbler retrieves a table reference via Cupboard.GetTable(crumbs)."
+  - F4: "Cobbler verifies connectivity by performing a test Fetch operation."
+  - F5: "On success, cobbler proceeds with the command. On failure, cobbler reports the connection error and exits."
+
+touchpoints:
+  - T1: "Cupboard.Attach() and Cupboard.GetTable() establish connection to crumbs backend (prd001-agent-interface R1)"
+  - T2: "Table.Fetch() verifies read access to crumbs (prd001-agent-interface R1)"
+
+success_criteria:
+  - S1: "Cobbler connects to the cupboard without error"
+  - S2: "Table reference is non-nil and supports Get, Set, Delete, Fetch operations"
+  - S3: "Connection error produces a clear diagnostic message"
+
+out_of_scope:
+  - Backend migration or multi-backend support
+  - Cupboard schema creation
+  - Connection pooling
+
+test_suite: test-rel01.0

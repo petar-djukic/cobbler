@@ -1,0 +1,61 @@
+id: test-rel01.0
+title: "Test Suite: Release 01.0 — Core Stitch (Docs)"
+release: rel01.0
+
+traces:
+  - rel01.0-uc001-cupboard-connection
+  - rel01.0-uc002-doc-task-execution
+  - rel01.0-uc003-agent-loop
+  - rel01.0-uc004-benchmark-hello-world
+
+preconditions:
+  - Go toolchain installed (go build, go test available)
+  - Crumbs module importable (github.com/petar-djukic/crumbs)
+  - SQLite backend available for cupboard
+  - Anthropic API key configured for Claude agent
+
+test_cases:
+  - use_case: rel01.0-uc001-cupboard-connection
+    name: Cupboard attach and table access
+    description: Verify cobbler can attach to SQLite backend and retrieve a table reference.
+    inputs:
+      backend: sqlite
+      data_dir: .crumbs
+    expected:
+      cupboard_attached: true
+      table_reference: non-nil
+      fetch_succeeds: true
+
+  - use_case: rel01.0-uc002-doc-task-execution
+    name: Documentation task end-to-end
+    description: Execute a documentation crumb through stitch and verify output.
+    inputs:
+      work_type: documentation
+      crumb_state: ready
+    expected:
+      crumb_final_state: completed
+      output_file_exists: true
+      output_file_non_empty: true
+
+  - use_case: rel01.0-uc003-agent-loop
+    name: Agent conversation loop completion
+    description: Verify the agent loop runs to completion with tool calls.
+    inputs:
+      prompt: "Write a one-line Go function that returns 42."
+      tools:
+        - write_file
+    expected:
+      stop_reason: complete
+      token_count_positive: true
+      invocations_recorded: true
+
+  - use_case: rel01.0-uc004-benchmark-hello-world
+    name: Hello World benchmark pass
+    description: Run the Hello World benchmark fixture and verify pass.
+    inputs:
+      fixture: benchmarks/hello-world
+    expected:
+      build_exit_code: 0
+      output_matches: "Hello, World!"
+      crumb_state: completed
+      benchmark_result: PASS

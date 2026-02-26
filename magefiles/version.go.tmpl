@@ -1,0 +1,10 @@
+package main
+
+import "fmt"
+
+// Version is set during the generation process.
+const Version = "{{.Version}}"
+
+func main() {
+	fmt.Printf("%s version %s\n", "cobbler", Version)
+}

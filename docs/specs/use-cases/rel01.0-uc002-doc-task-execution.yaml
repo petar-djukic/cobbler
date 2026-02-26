@@ -1,0 +1,43 @@
+id: rel01.0-uc002-doc-task-execution
+title: "Use Case: Documentation Task Execution"
+
+summary: |
+  A developer runs cobbler stitch to execute a documentation task. Cobbler picks
+  a ready documentation crumb, assembles context from docs and style guides,
+  builds a prompt from templates, dispatches the agent, and the agent produces
+  a markdown document.
+
+actor: Developer running cobbler stitch
+
+trigger: |
+  Developer invokes cobbler stitch with a documentation work type filter or
+  picks a documentation crumb from the ready queue.
+
+flow:
+  - F1: "Developer runs cobbler stitch --type documentation."
+  - F2: "Cobbler queries the cupboard for ready crumbs with work_type=documentation."
+  - F3: "Cobbler claims the selected crumb by setting state to taken."
+  - F4: "The context assembler gathers style guides, related docs, PRDs, and format rules."
+  - F5: "The prompt builder constructs a prompt from the documentation template."
+  - F6: "Cobbler dispatches the prompt to the agent. The agent produces markdown output."
+  - F7: "Cobbler runs a lightweight quality gate: check that the output file exists and has content."
+  - F8: "On success, cobbler updates the crumb state to completed with token and word count metrics."
+
+touchpoints:
+  - T1: "Task picker queries cupboard for ready documentation crumbs (prd002-stitch R1)"
+  - T2: "Context assembler gathers documentation-specific context (prd002-stitch R3)"
+  - T3: "Prompt builder uses documentation template with crumb fields (prd002-stitch R4)"
+  - T4: "Agent dispatch sends prompt via Agent.Run (prd002-stitch R5, prd001-agent-interface R1)"
+
+success_criteria:
+  - S1: "Documentation crumb claimed and state set to taken"
+  - S2: "Agent produces a non-empty markdown file"
+  - S3: "Crumb state transitions to completed with metrics"
+  - S4: "Token usage recorded in crumb metadata"
+
+out_of_scope:
+  - Code task execution
+  - Git worktree management
+  - Multi-file documentation output
+
+test_suite: test-rel01.0

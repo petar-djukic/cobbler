@@ -1,0 +1,38 @@
+id: rel03.0-uc002-work-proposal
+title: "Use Case: Work Proposal"
+
+summary: |
+  After project analysis, cobbler invokes the planning agent with curated
+  context. The agent proposes new tasks based on project state, roadmap
+  alignment, and incomplete use cases.
+
+actor: Developer running cobbler measure
+
+trigger: |
+  Project state has been collected and context assembled for the planning agent.
+
+flow:
+  - F1: "Cobbler assembles a PlanningContext from ProjectState filtered by current release."
+  - F2: "Cobbler loads the planning prompt template from cupboard or embedded default."
+  - F3: "Cobbler constructs a prompt using template variables from PlanningContext."
+  - F4: "Cobbler dispatches the prompt to the agent via Agent.Run."
+  - F5: "Agent analyzes project state and outputs proposed crumbs with title, description, work type, and release."
+  - F6: "Cobbler validates proposals: required fields present, work type is valid, release exists or defaults to 99.0."
+
+touchpoints:
+  - T1: "Context assembly filters by current release and relevance (prd003-measure R2)"
+  - T2: "Agent dispatch uses Agent interface for planning (prd003-measure R3, prd001-agent-interface R1)"
+  - T3: "Roadmap alignment validates release assignments (prd003-measure R7)"
+
+success_criteria:
+  - S1: "Planning agent receives curated context, not raw file dumps"
+  - S2: "Proposals include required fields: title, description, work_type"
+  - S3: "Invalid work types are rejected"
+  - S4: "Unknown releases default to 99.0 with a warning"
+
+out_of_scope:
+  - Autonomous approval of proposals
+  - Running stitch after measure
+  - Modifying the roadmap
+
+test_suite: test-rel03.0

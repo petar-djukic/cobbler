@@ -1,0 +1,39 @@
+id: rel04.0-uc003-design-proposals
+title: "Use Case: Design Proposals"
+
+summary: |
+  Cobbler pattern analyzes project structure, identifies technical debt or
+  design improvements, and outputs proposals as new crumbs or documentation
+  updates. Pattern runs when path health degrades or on a periodic schedule.
+
+actor: Developer running cobbler pattern or development loop
+
+trigger: |
+  Path health indicators show degradation (excessive LOC growth, increasing
+  complexity) or pattern runs on its periodic schedule.
+
+flow:
+  - F1: "Cobbler detects path health degradation or periodic pattern trigger."
+  - F2: "Cobbler collects project structure, recent changes, and health metrics."
+  - F3: "Cobbler invokes an agent with a design analysis prompt."
+  - F4: "Agent analyzes project structure and identifies improvement opportunities."
+  - F5: "Agent produces design proposals as structured output."
+  - F6: "Cobbler writes proposals as new crumbs in the cupboard for human review."
+
+touchpoints:
+  - T1: "Pattern command proposes architectural changes within the development loop (prd004-development-loop R1, R2, R7)"
+  - T2: "Path health monitoring triggers pattern on degradation (prd004-development-loop R6)"
+  - T3: "Observability traces provide execution data for design analysis (prd005-observability R5, R13)"
+
+success_criteria:
+  - S1: "Pattern agent receives project structure and health metrics"
+  - S2: "Proposals are concrete and actionable"
+  - S3: "Proposals are written as crumbs for human review"
+  - S4: "Pattern can modify operation templates for future cycles"
+
+out_of_scope:
+  - Automatic implementation of proposals
+  - Cross-project analysis
+  - Recursive self-modification without human approval
+
+test_suite: test-rel04.0

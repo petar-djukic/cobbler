@@ -1,0 +1,43 @@
+id: rel02.0-uc001-code-task-execution
+title: "Use Case: Code Task Execution"
+
+summary: |
+  A developer runs cobbler stitch to execute a coding task. Cobbler picks a
+  ready coding crumb, creates a git worktree, assembles code-specific context,
+  dispatches the agent, and merges the result on success.
+
+actor: Developer running cobbler stitch
+
+trigger: |
+  Developer invokes cobbler stitch with a coding work type filter or picks a
+  coding crumb from the ready queue.
+
+flow:
+  - F1: "Developer runs cobbler stitch --type coding."
+  - F2: "Cobbler queries the cupboard for ready crumbs with work_type=coding."
+  - F3: "Cobbler claims the selected crumb by setting state to taken."
+  - F4: "Cobbler creates a git worktree on branch task/[id]."
+  - F5: "The context assembler gathers relevant source files, tests, and interface definitions."
+  - F6: "The prompt builder constructs a prompt from the coding template."
+  - F7: "Cobbler dispatches the prompt to the agent in the worktree directory."
+  - F8: "Agent produces code changes in the worktree."
+  - F9: "Cobbler runs quality gates: tests, linter, and build."
+  - F10: "On success, cobbler merges the branch and updates crumb to completed."
+
+touchpoints:
+  - T1: "Git worktree created for isolated code execution (prd002-stitch R6)"
+  - T2: "Context assembler gathers code-specific files (prd002-stitch R3)"
+  - T3: "Quality gates validate code before merge (prd002-stitch R7)"
+
+success_criteria:
+  - S1: "Git worktree created and cleaned up properly"
+  - S2: "Agent produces compilable code"
+  - S3: "Quality gates pass (tests, linter, build)"
+  - S4: "Branch merges cleanly to main"
+
+out_of_scope:
+  - Parallel worktree execution
+  - Merge conflict resolution
+  - Documentation task handling
+
+test_suite: test-rel02.0
