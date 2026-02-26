@@ -28,6 +28,7 @@ touchpoints:
   - T2: "Context assembler gathers documentation-specific context (prd002-stitch R3)"
   - T3: "Prompt builder uses documentation template with crumb fields (prd002-stitch R4)"
   - T4: "Agent dispatch sends prompt via Agent.Run (prd002-stitch R5, prd001-agent-interface R1)"
+  - T5: "Task execution runs within a generation lifecycle that manages start, run, resume, and stop (prd006-generation-lifecycle R1)"
 
 success_criteria:
   - S1: "Documentation crumb claimed and state set to taken"

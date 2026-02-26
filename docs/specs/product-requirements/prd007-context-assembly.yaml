@@ -74,9 +74,9 @@ non_goals:
   - This PRD does not define caching of assembled context between invocations
 
 acceptance_criteria:
-  - AC1: buildProjectContext produces a single YAML string containing all project documents
-  - AC2: ProjectContext includes vision, architecture, PRDs, use cases, test suites, source files, and issues
-  - AC3: PhaseContext files override Config fields when present
-  - AC4: Absent phase context files leave Config unchanged
-  - AC5: Malformed phase context files produce an error
-  - AC6: Context is loaded at the start of each measure and stitch invocation
+  - "AC1: buildProjectContext produces a single YAML string containing all project documents"
+  - "AC2: ProjectContext includes vision, architecture, PRDs, use cases, test suites, source files, and issues"
+  - "AC3: PhaseContext files override Config fields when present"
+  - "AC4: Absent phase context files leave Config unchanged"
+  - "AC5: Malformed phase context files produce an error"
+  - "AC6: Context is loaded at the start of each measure and stitch invocation"

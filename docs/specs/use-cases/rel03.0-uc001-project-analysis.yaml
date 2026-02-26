@@ -24,6 +24,7 @@ flow:
 touchpoints:
   - T1: "Project state reader collects structured input from known file locations (prd003-measure R1)"
   - T2: "Cupboard.GetTable(crumbs).Fetch() retrieves existing work items (prd003-measure R1)"
+  - T3: "Context assembly builds ProjectContext YAML blob from project documents (prd007-context-assembly R1)"
 
 success_criteria:
   - S1: "ProjectState struct populated with vision, architecture, roadmap, crumbs, and stats"

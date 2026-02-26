@@ -98,11 +98,11 @@ non_goals:
   - This PRD does not define multi-generation concurrency; one generation runs at a time
 
 acceptance_criteria:
-  - AC1: GeneratorStart creates a tagged generation branch with clean state from any clean base branch
-  - AC2: GeneratorStart records the base branch name for later recovery
-  - AC3: GeneratorRun executes the specified number of measure+stitch cycles
-  - AC4: GeneratorResume recovers from interruption and continues without data loss
-  - AC5: GeneratorStop reads the base branch and merges back with correct tags
-  - AC6: GeneratorReset returns to a clean main-only state
-  - AC7: GeneratorList shows active, merged, and abandoned generations
-  - AC8: GeneratorSwitch commits work and changes branches safely
+  - "AC1: GeneratorStart creates a tagged generation branch with clean state from any clean base branch"
+  - "AC2: GeneratorStart records the base branch name for later recovery"
+  - "AC3: GeneratorRun executes the specified number of measure+stitch cycles"
+  - "AC4: GeneratorResume recovers from interruption and continues without data loss"
+  - "AC5: GeneratorStop reads the base branch and merges back with correct tags"
+  - "AC6: GeneratorReset returns to a clean main-only state"
+  - "AC7: GeneratorList shows active, merged, and abandoned generations"
+  - "AC8: GeneratorSwitch commits work and changes branches safely"

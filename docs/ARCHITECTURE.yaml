@@ -224,7 +224,7 @@ components:
       - prd002-measure
 
 design_decisions:
-  - id: DD1
+  - id: 1
     title: Crumbs import as Go module
     decision: |
       We import crumbs as a Go module for direct cupboard access. This provides type safety,
@@ -236,7 +236,7 @@ design_decisions:
     alternatives_rejected:
       - "CLI wrapper: parsing text output is fragile and loses type information"
 
-  - id: DD2
+  - id: 2
     title: Agent strategy pattern (deferred)
     decision: |
       We define a Go interface for agent invocation (prd003) but defer implementation to
@@ -248,7 +248,7 @@ design_decisions:
     alternatives_rejected:
       - "Direct SDK integration: anthropic-sdk-go adds a dependency and limits us to one provider"
 
-  - id: DD3
+  - id: 3
     title: Two prompt templates
     decision: |
       We use exactly two prompt templates (measure.tmpl and stitch.tmpl), embedded via
@@ -261,7 +261,7 @@ design_decisions:
     alternatives_rejected:
       - "Per-work-type templates: unnecessary complexity when full context injection eliminates the need for selective assembly"
 
-  - id: DD4
+  - id: 4
     title: Container-isolated Claude execution
     decision: |
       We run Claude inside a podman container. The orchestrator wraps every invocation with
@@ -274,7 +274,7 @@ design_decisions:
     alternatives_rejected:
       - "Running Claude as bare binary on host: no isolation, environment differences harder to debug"
 
-  - id: DD5
+  - id: 5
     title: Full context injection
     decision: |
       We assemble the entire project state (docs, specs, source code, issues) into a single
@@ -287,7 +287,7 @@ design_decisions:
     alternatives_rejected:
       - "Selective context assembly: complex routing logic, risk of missing relevant context"
 
-  - id: DD6
+  - id: 6
     title: Git worktree isolation
     decision: |
       Each stitch task runs in a separate git worktree on its own branch. Worktrees are
@@ -299,7 +299,7 @@ design_decisions:
     alternatives_rejected:
       - "Running Claude on the generation branch directly: risks partial commits and merge conflicts"
 
-  - id: DD7
+  - id: 7
     title: Orchestrator-managed git
     decision: |
       The orchestrator stages and commits Claude's changes in the worktree. Claude is
@@ -312,7 +312,7 @@ design_decisions:
     alternatives_rejected:
       - "Letting Claude commit: inconsistent messages, risk of force-push or branch deletion"
 
-  - id: DD8
+  - id: 8
     title: Three-phase constitutions
     decision: |
       Project governance is split into three constitutions: design (scaffolded to projects
@@ -326,7 +326,7 @@ design_decisions:
     alternatives_rejected:
       - "Single monolithic constitution: every agent sees all rules regardless of relevance"
 
-  - id: DD9
+  - id: 9
     title: History artifacts over OpenTelemetry
     decision: |
       We save prompt, log, and stats YAML per invocation to a history directory. This
@@ -338,7 +338,7 @@ design_decisions:
     alternatives_rejected:
       - "OpenTelemetry: requires collector infrastructure, complex span hierarchy, disproportionate to current scale"
 
-  - id: DD10
+  - id: 10
     title: Quality evaluation in inspect, not stitch
     decision: |
       Quality gates (test pass rate, lint violations, code quality metrics) are evaluated in
@@ -351,7 +351,7 @@ design_decisions:
     alternatives_rejected:
       - "Quality gates in stitch: conflates execution with evaluation, prevents cross-task analysis"
 
-  - id: DD11
+  - id: 11
     title: Config-driven with no parameters
     decision: |
       RunMeasure and RunStitch take no parameters. All options come from the Config struct
@@ -364,7 +364,7 @@ design_decisions:
     alternatives_rejected:
       - "Method parameters: values not recorded, invocations not reproducible"
 
-  - id: DD12
+  - id: 12
     title: Task branch naming convention
     decision: |
       Task branches follow the pattern task/{baseBranch}-{issueID}. This encodes the
