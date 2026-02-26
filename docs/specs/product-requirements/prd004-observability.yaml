@@ -1,0 +1,86 @@
+id: prd004-observability
+title: Observability
+
+problem: |
+  Understanding what happened during a generation requires structured logs, saved artifacts,
+  and per-invocation metrics. Without observability, developers cannot debug failures, compare
+  prompt effectiveness, or track cost trends across generations.
+
+  Cobbler-scaffold proves that history artifacts (prompt, log, stats YAML per invocation)
+  provide sufficient observability for debugging and cost tracking. OpenTelemetry tracing adds
+  complexity without proportional benefit at the current scale. We adopt scaffold's proven
+  approach and defer OpenTelemetry to a future release.
+
+goals:
+  - G1: Provide structured, phase-aware logging for all operations
+  - G2: Save history artifacts per invocation for debugging and audit
+  - G3: Record agent-agnostic metrics per invocation
+  - G4: Capture LOC snapshots before and after each invocation
+  - G5: Parse token usage from Claude stream-json output
+  - G6: Collect aggregate project statistics
+
+requirements:
+  R1:
+    title: Structured Logging
+    items:
+      - R1.1: Log lines must include a timestamp
+      - R1.2: Log lines must include the generation name when a generation is active
+      - R1.3: Log lines must include the phase name (measure, stitch, inspect, mend, pattern) with elapsed time when a phase is active
+      - R1.4: Logging must write to stderr to keep stdout available for structured output
+
+  R2:
+    title: History Artifacts
+    items:
+      - R2.1: Each invocation must save the rendered prompt to a file in the history directory
+      - R2.2: Each invocation must save the Claude log (raw output) to a file in the history directory
+      - R2.3: Each invocation must save a stats YAML file to the history directory containing caller, task ID, task title, started_at, duration, tokens, cost_usd, LOC before, LOC after, and diff stats
+      - R2.4: History files must be named with the invocation timestamp and caller (measure or stitch)
+      - R2.5: The history directory path must be configurable via Config
+
+  R3:
+    title: Invocation Records
+    items:
+      - R3.1: InvocationRecord must capture caller (measure or stitch), started_at, duration_seconds, tokens (input, output, cache_creation, cache_read), cost_usd, LOC_before, LOC_after, and diff stats
+      - R3.2: InvocationRecord must be stored on the cupboard issue as a comment or metadata
+      - R3.3: Metrics must be agent-agnostic; different agents report tokens and cost differently but the record format is the same
+
+  R4:
+    title: LOC Snapshots
+    items:
+      - R4.1: LOC must be captured before each Claude invocation from configured source directories
+      - R4.2: LOC must be captured after each Claude invocation
+      - R4.3: LOC must distinguish production code and test code
+      - R4.4: LOC counts must use the configured GoSourceDirs and exclude magefiles
+
+  R5:
+    title: Token Parsing
+    items:
+      - R5.1: parseClaudeTokens must extract input_tokens, output_tokens, cache_creation_input_tokens, and cache_read_input_tokens from Claude stream-json output
+      - R5.2: parseClaudeTokens must extract cost_usd from the result event
+      - R5.3: Token parsing must handle the case where Claude outputs no result event (timeout or failure)
+
+  R6:
+    title: Git Diff Statistics
+    items:
+      - R6.1: After each stitch task, the orchestrator must capture git diff stats (files changed, insertions, deletions)
+      - R6.2: Diff stats must be included in the InvocationRecord and history stats
+
+  R7:
+    title: Aggregate Project Statistics
+    items:
+      - R7.1: A Stats command must report Go LOC (production and test separately)
+      - R7.2: A Stats command must report documentation word count from configured spec globs
+      - R7.3: Stats output must be suitable for inclusion in commit messages and session summaries
+
+non_goals:
+  - OpenTelemetry tracing is deferred to rel99.0; we do not implement spans, OTLP export, or trace visualization in rel01.0
+  - We do not build dashboards or visualization tools; history artifacts are files for manual or tool-assisted inspection
+
+acceptance_criteria:
+  - AC1: Log lines include timestamp, generation name, and phase with elapsed time
+  - AC2: History artifacts (prompt, log, stats YAML) are saved per invocation
+  - AC3: InvocationRecord captures cost, tokens (four categories), time, and LOC delta
+  - AC4: LOC snapshots are taken before and after each Claude invocation
+  - AC5: Token parsing extracts all four token categories and cost from stream-json
+  - AC6: Git diff stats are captured after each stitch task
+  - AC7: Aggregate stats report Go LOC and documentation word count

@@ -1,61 +1,82 @@
 id: rel01.0-uc004-benchmark-hello-world
-title: "Use Case: Hello World Benchmark"
+title: Hello World Benchmark
 
 summary: |
-  A developer invokes cobbler stitch against a benchmark fixture directory
-  containing a spec document for a Hello World Go CLI. Cobbler reads the spec,
-  creates a task in the cupboard, builds a prompt from templates, dispatches an
-  agent, and the agent produces a working main.go that prints "Hello, World!"
-  to stdout.
+  A developer invokes cobbler stitch against a benchmark fixture containing a spec for a
+  Hello World Go CLI. Cobbler reads the spec, creates a task in cupboard, builds a prompt
+  with full ProjectContext, dispatches Claude in a podman container, and the agent produces a
+  working main.go that prints "Hello, World!" to stdout. The orchestrator commits the
+  generated code, runs quality gates, and closes the task.
 
 actor: Developer running the benchmark suite or manually testing stitch
 
 trigger: |
-  Developer invokes cobbler stitch against a benchmark fixture directory that
-  contains a specification document describing a Hello World Go CLI.
+  Developer invokes cobbler stitch against a benchmark fixture directory containing a
+  specification document describing a Hello World Go CLI.
 
 flow:
-  - F1: "Developer runs cobbler stitch --fixture benchmarks/hello-world."
-  - F2: "Cobbler reads the spec document from the fixture directory describing a Go CLI that prints Hello, World! to stdout."
-  - F3: "Cobbler creates a crumb in the cupboard representing the code task with spec content, task type coding, and acceptance criteria."
-  - F4: "Cobbler claims the crumb by setting its state to taken."
-  - F5: "The prompt builder constructs a prompt from templates including the spec, project context, and instructions."
-  - F6: "Cobbler dispatches the prompt to the agent via the Agent interface. The agent produces main.go content."
-  - F7: "The agent writes main.go to the fixture output directory."
-  - F8: "Cobbler runs quality gates: go build on main.go and verifies the binary produces the expected output."
-  - F9: "On success, cobbler updates the crumb state to completed. On failure, the crumb state becomes failed with error details."
-  - F10: "The benchmark runner reports pass or fail based on the crumb state and gate results."
+  - id: F1
+    step: Developer runs cobbler stitch pointing to the benchmark fixture directory
+  - id: F2
+    step: Cobbler reads the spec document from the fixture directory; the spec describes a Go CLI that prints "Hello, World!" to stdout
+  - id: F3
+    step: Cobbler creates a task in cupboard with the spec content, task type, and acceptance criteria
+  - id: F4
+    step: Cobbler claims the task by setting status to in_progress
+  - id: F5
+    step: The prompt builder constructs a stitch prompt from the template with full ProjectContext YAML blob and execution constitution
+  - id: F6
+    step: Cobbler invokes Claude Code CLI inside a podman container with the prompt; the container mounts the working directory at the same path
+  - id: F7
+    step: Claude writes main.go to the fixture output directory
+  - id: F8
+    step: The orchestrator stages and commits Claude's changes (Claude is forbidden from git)
+  - id: F9
+    step: The orchestrator records an InvocationRecord with cost, tokens, time, and LOC delta
+  - id: F10
+    step: The orchestrator saves history artifacts (prompt, log, stats) to the history directory
+  - id: F11
+    step: On success, cobbler updates the task state to completed; on failure, the task is reset to ready
 
 touchpoints:
-  - T1: "Cupboard GetTable(crumbs).Set() and Get() store the code task crumb and track state transitions (prd001-agent-interface R1, prd002-stitch R8)"
-  - T2: "Stitch executor Executor.Execute() claims crumb and orchestrates prompt-agent-gate workflow (prd002-stitch R1-R7)"
-  - T3: "Prompt builder internal/prompt templates construct prompt from spec and templates (prd002-stitch R4)"
-  - T4: "Agent interface Agent.Run() sends prompt to LLM and receives generated code (prd001-agent-interface R1)"
-  - T5: "Quality gates go build and output verification validate generated code (prd002-stitch R7)"
+  - id: T1
+    component: Cupboard
+    role: Stores the task; tracks state transitions (ready -> in_progress -> completed)
+  - id: T2
+    component: Stitch workflow
+    role: Claims task, orchestrates prompt-agent-commit workflow
+  - id: T3
+    component: Context assembly
+    role: Builds full ProjectContext YAML blob from project documents
+  - id: T4
+    component: Prompt builder
+    role: Renders stitch.tmpl with StitchPromptData and execution constitution
+  - id: T5
+    component: Claude invocation
+    role: Runs Claude Code CLI in podman container with same-path volume mounting
+  - id: T6
+    component: History artifacts
+    role: Saves prompt, log, and stats YAML per invocation
 
 success_criteria:
-  - S1: "cobbler stitch --fixture benchmarks/hello-world executes without error"
-  - S2: "Agent produces main.go in the output directory"
-  - S3: "go build -o hello main.go succeeds with exit code 0"
-  - S4: "Running ./hello produces stdout containing exactly Hello, World!"
-  - S5: "Crumb in the cupboard has state completed"
-  - S6: "Benchmark runner reports PASS"
-
-dependencies:
-  - D1: "rel01.0-uc001-cupboard-connection — cupboard must be connectable via Go module"
-  - D2: "rel01.0-uc003-agent-loop — agent interface and prompt templates must be functional"
-
-risks:
-  - RK1: "Agent produces incorrect code; mitigation: quality gates catch failure, spec is simple enough to succeed reliably"
-  - RK2: "go build not available in environment; mitigation: document prerequisite Go toolchain installed"
-  - RK3: "Output format varies; mitigation: spec explicitly states exact output string in agent prompt"
+  - id: S1
+    criterion: Task is created in cupboard and claimed (status transitions to in_progress)
+  - id: S2
+    criterion: Claude produces main.go in the output directory
+  - id: S3
+    criterion: go build succeeds with exit code 0
+  - id: S4
+    criterion: Binary output is exactly "Hello, World!"
+  - id: S5
+    criterion: Task state is completed in cupboard
+  - id: S6
+    criterion: InvocationRecord is stored with cost, tokens, and LOC data
+  - id: S7
+    criterion: History artifacts (prompt, log, stats) exist in the history directory
 
 out_of_scope:
   - Multiple-file applications (main.go only)
   - Test file generation (no main_test.go)
   - Refactoring loops or iterative fixes
   - Agent retry on failure
-  - Git worktree management (uses simple output directory)
   - Complex spec parsing or multi-step prompts
-
-test_suite: test-rel01.0

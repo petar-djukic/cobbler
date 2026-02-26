@@ -1,0 +1,82 @@
+id: prd007-context-assembly
+title: Context Assembly
+
+problem: |
+  Both measure and stitch require the agent to see the full project state: documentation,
+  specifications, source code, and existing issues. Without a structured approach to context
+  assembly, each phase would duplicate the logic for reading and marshaling project artifacts.
+
+  Cobbler-scaffold proves that injecting a single YAML blob (ProjectContext) containing all
+  project documents reduces Claude turns from ~51 to 2-4 and eliminates the need for
+  per-work-type selective context assembly. Over 30 struct types model the document schema.
+  Phase-specific context files allow overriding global settings at invocation time.
+
+goals:
+  - G1: Define the ProjectContext struct that models all document types
+  - G2: Assemble everything into a single YAML string for prompt injection
+  - G3: Support phase-specific context overrides via PhaseContext files
+  - G4: Load context at invocation time for each measure and stitch call
+
+requirements:
+  R1:
+    title: ProjectContext Structure
+    items:
+      - R1.1: ProjectContext must model vision (VisionDoc), architecture (ArchitectureDoc), specifications (SpecificationDoc), and roadmap
+      - R1.2: ProjectContext must model PRDs (PRDDoc), use cases (UseCaseDoc), test suites (TestSuiteDoc), and engineering guidelines (EngineeringDoc)
+      - R1.3: ProjectContext must model constitutions (design, planning, execution)
+      - R1.4: ProjectContext must model source files (SourceFile with path and content)
+      - R1.5: ProjectContext must model existing issues from cupboard (structured format with ID, title, status, description)
+
+  R2:
+    title: Context Assembly
+    items:
+      - R2.1: buildProjectContext must assemble all document types into a single YAML string
+      - R2.2: buildProjectContext must load vision, architecture, specifications, and roadmap from configured paths
+      - R2.3: buildProjectContext must load PRDs, use cases, test suites, and engineering guidelines from configured glob patterns
+      - R2.4: buildProjectContext must load Go source files from configured source directories
+      - R2.5: buildProjectContext must parse existing issues from cupboard into structured format
+      - R2.6: buildProjectContext must load constitutions from configured or embedded paths
+
+  R3:
+    title: Phase-Specific Context Files
+    items:
+      - R3.1: PhaseContext must define include, exclude, sources, and release fields
+      - R3.2: Phase context files (measure_context.yaml and stitch_context.yaml) must reside in the cobbler scratch directory
+      - R3.3: When a phase context file exists, its non-empty fields must override the corresponding Config fields before context assembly
+      - R3.4: When a phase context file is absent, Config defaults apply unchanged
+
+  R4:
+    title: PhaseContext Loading Semantics
+    items:
+      - R4.1: loadPhaseContext must return (nil, nil) when the file does not exist
+      - R4.2: loadPhaseContext must return an error when the file exists but is malformed YAML
+      - R4.3: loadPhaseContext must return the parsed PhaseContext when the file is valid
+
+  R5:
+    title: Override Logic
+    items:
+      - R5.1: buildProjectContext must accept an optional PhaseContext parameter
+      - R5.2: When PhaseContext is non-nil, its non-empty include field replaces Config include patterns
+      - R5.3: When PhaseContext is non-nil, its non-empty exclude field replaces Config exclude patterns
+      - R5.4: When PhaseContext is non-nil, its non-empty sources field replaces Config source directories
+      - R5.5: When PhaseContext is non-nil, its non-empty release field replaces Config release filter
+
+  R6:
+    title: Invocation-Time Loading
+    items:
+      - R6.1: buildMeasurePrompt must load the measure phase context file at the start of each measure invocation
+      - R6.2: buildStitchPrompt must load the stitch phase context file at the start of each stitch invocation
+      - R6.3: The orchestrator must log which context file was loaded or that fallback to Config was used
+
+non_goals:
+  - This PRD does not define the prompt templates (see prd001 R4, prd002 R3)
+  - This PRD does not define selective context assembly by work type; we inject the full project context
+  - This PRD does not define caching of assembled context between invocations
+
+acceptance_criteria:
+  - AC1: buildProjectContext produces a single YAML string containing all project documents
+  - AC2: ProjectContext includes vision, architecture, PRDs, use cases, test suites, source files, and issues
+  - AC3: PhaseContext files override Config fields when present
+  - AC4: Absent phase context files leave Config unchanged
+  - AC5: Malformed phase context files produce an error
+  - AC6: Context is loaded at the start of each measure and stitch invocation

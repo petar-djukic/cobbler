@@ -1,0 +1,89 @@
+id: prd003-agent-interface
+title: Agent Interface
+
+problem: |
+  The current implementation invokes Claude Code CLI directly through podman. While this
+  works, a Go interface for agent invocation would enable provider abstraction, type-safe
+  request/response handling, structured token tracking, and testability through mock
+  implementations. This interface defines the contract for future provider support via the
+  strategy pattern.
+
+  The initial implementation uses Claude Code CLI via podman (see prd001 R5, prd002 R4). This
+  PRD defines the Go interface that a future provider abstraction would implement.
+
+goals:
+  - G1: Define a type-safe Go interface for agent invocation
+  - G2: Support explicit tool registration per invocation
+  - G3: Return structured responses with token tracking
+  - G4: Define error types for agent failures
+  - G5: Enable provider abstraction via strategy pattern
+
+requirements:
+  R1:
+    title: Agent Interface
+    items:
+      - R1.1: Agent must define Run(ctx context.Context, req Request) (Response, error)
+      - R1.2: Request must include Model, System prompt, Messages, Tools, and MaxTokens
+      - R1.3: Response must include Content, ToolCalls, Usage, and StopReason
+
+  R2:
+    title: Tool Interface
+    items:
+      - R2.1: Tool must define Name() string, Description() string, Parameters() json.RawMessage, and Execute(ctx context.Context, input json.RawMessage) (string, error)
+      - R2.2: Tools must be registered per invocation via Request.Tools
+
+  R3:
+    title: Response Structure
+    items:
+      - R3.1: Response.Usage must track InputTokens, OutputTokens, CacheCreationTokens, and CacheReadTokens
+      - R3.2: Response.StopReason must distinguish end_turn, max_tokens, tool_use, and timeout
+      - R3.3: Response.Content must be a string containing the agent's text output
+
+  R4:
+    title: Conversation Loop
+    items:
+      - "R4.1: The conversation loop must follow the state machine -- Send, Tool execution, Complete, Error, or Timeout"
+      - R4.2: Tool results must be fed back as tool_result messages
+      - R4.3: The loop must terminate on end_turn, max_tokens, or error
+
+  R5:
+    title: Claude Implementation
+    items:
+      - R5.1: A Claude implementation of Agent must exist using the strategy pattern
+      - R5.2: The implementation must support model selection via Request.Model
+
+  R6:
+    title: Timeout and Cancellation
+    items:
+      - R6.1: Agent.Run must respect context.Context cancellation
+      - R6.2: Timeout must be configurable per invocation
+
+  R7:
+    title: Token Tracking
+    items:
+      - R7.1: Usage must be reported per invocation (input, output, cache_creation, cache_read)
+      - R7.2: Cost in USD must be derivable from token counts
+
+  R8:
+    title: Error Types
+    items:
+      - R8.1: Errors must include ErrorKind distinguishing agent, tool, timeout, rate_limit, network, and invalid errors
+      - R8.2: Each error must include a human-readable message and the underlying cause
+
+  R9:
+    title: Configuration
+    items:
+      - R9.1: Agent configuration must include provider, model, defaults, timeouts, and credential source
+      - R9.2: Configuration must be serializable to YAML for reproducibility
+
+non_goals:
+  - We do not implement this interface in rel01.0; initial implementation uses Claude Code CLI via podman
+  - We do not define multi-agent communication or agent chaining
+  - We do not define tool implementations (tools are defined by the consuming context)
+
+acceptance_criteria:
+  - AC1: Agent interface compiles with Run(ctx, Request) (Response, error) signature
+  - AC2: Tool interface compiles with Name, Description, Parameters, Execute methods
+  - AC3: Response.Usage tracks all four token categories
+  - AC4: Error types distinguish six error kinds
+  - AC5: Configuration is serializable to YAML

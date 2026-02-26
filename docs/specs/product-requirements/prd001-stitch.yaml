@@ -1,0 +1,109 @@
+id: prd001-stitch
+title: Stitch Workflow
+
+problem: |
+  Executing tasks from a work queue requires structured context assembly, agent invocation,
+  git management, and metrics tracking. Without a defined workflow, the orchestrator cannot
+  execute tasks with proper isolation, record what happened, or recover from failures.
+
+  Cobbler-scaffold proves that full context injection (a single YAML blob), orchestrator-
+  managed git (Claude forbidden from git commands), and container-isolated Claude execution
+  produce reliable results across 16 use cases and 105 test cases. The stitch workflow
+  codifies these patterns.
+
+goals:
+  - G1: Define the stitch workflow that executes tasks in isolated worktrees
+  - G2: Replace selective context assembly with full ProjectContext injection
+  - G3: Ensure the orchestrator manages all git operations; Claude is forbidden from git
+  - G4: Record history artifacts and invocation metrics for every task
+  - G5: Support recovery from interrupted stitch runs
+  - G6: Run Claude Code CLI inside a podman container
+
+requirements:
+  R1:
+    title: Workflow Configuration
+    items:
+      - R1.1: RunStitch must take no parameters; all options come from Config
+      - R1.2: Stitch must read SilenceAgent, MaxIssues, GenerationBranch, and TokenFile from Config
+      - R1.3: Stitch must read ClaudeArgs and PodmanArgs from Config for invocation
+
+  R2:
+    title: Stitch Workflow
+    items:
+      - R2.1: Stitch must verify cupboard is initialized before proceeding
+      - R2.2: Stitch must resolve and switch to the target branch
+      - R2.3: Stitch must recover stale tasks from interrupted runs before processing (see R3)
+      - R2.4: Stitch must pick ready tasks one at a time from cupboard
+      - R2.5: Stitch must stop when no ready tasks remain or MaxIssues is reached
+      - R2.6: For each task, stitch must claim the task by setting status to in_progress
+      - R2.7: For each task, stitch must create a git worktree on a task branch
+      - R2.8: Task branches must follow the pattern task/{baseBranch}-{issueID}
+      - R2.9: For each task, stitch must build the prompt from the template with task data and full ProjectContext (see prd007)
+      - R2.10: For each task, stitch must inject the execution constitution into the stitch prompt
+      - R2.11: For each task, stitch must invoke Claude in the worktree directory via podman (see R5)
+      - R2.12: For each task, the orchestrator must stage and commit Claude's changes in the worktree; Claude is forbidden from running git commands
+      - R2.13: For each task, stitch must merge the task branch back to the base branch
+      - R2.14: For each task, stitch must capture LOC before and after Claude and git diff stats
+      - R2.15: For each task, stitch must clean up the worktree and delete the task branch
+      - R2.16: For each task, stitch must record an InvocationRecord and close the task in cupboard
+      - R2.17: For each task, stitch must save history artifacts (prompt, log, stats) to the history directory
+
+  R3:
+    title: Recovery
+    items:
+      - R3.1: recoverStaleTasks must scan for stale task branches matching the task/{baseBranch}-{issueID} pattern
+      - R3.2: recoverStaleTasks must remove orphaned worktrees and delete stale branches
+      - R3.3: recoverStaleTasks must reset affected issues to ready status in cupboard
+      - R3.4: resetOrphanedIssues must find in_progress issues without corresponding task branches
+      - R3.5: resetOrphanedIssues must reset orphaned issues to ready status
+      - R3.6: Recovery must commit cupboard changes if any state was recovered
+
+  R4:
+    title: Prompt Templates
+    items:
+      - R4.1: The default stitch template must be embedded via go:embed from a stitch.tmpl file
+      - R4.2: A custom template path from Config must override the embedded default
+      - R4.3: StitchPromptData must provide Title, ID, IssueType, Description, ExecutionConstitution, and ProjectContext (YAML blob built from worktree)
+
+  R5:
+    title: Claude Invocation
+    items:
+      - R5.1: runClaude must execute the claude binary inside a podman container with the prompt on stdin
+      - R5.2: runClaude must mount the working directory into the container at the same path using -v mountDir:mountDir
+      - R5.3: runClaude must set the container working directory using podman -w when a worktree path is provided
+      - R5.4: runClaude must capture stdout for token parsing
+      - R5.5: parseClaudeTokens must extract input tokens, output tokens, cache creation tokens, cache read tokens, and cost from stream-json output
+      - R5.6: When silence is false, Claude stdout must be tee'd to both buffer and os.Stdout
+      - R5.7: runClaude must pass Config.PodmanArgs before the image name and Config.ClaudeArgs after the claude binary
+      - R5.8: runClaude must use context.WithTimeout to enforce ClaudeMaxTimeSec; process is killed on expiry
+      - R5.9: On Claude failure or timeout, the task must be reset to ready and the worktree cleaned up
+      - R5.10: On merge failure, the task must be reset to ready and the worktree cleaned up
+      - R5.11: runClaude must capture RawOutput (full stream-json bytes) for history saving
+
+  R6:
+    title: Pre-flight Checks
+    items:
+      - R6.1: checkPodman must verify Config.PodmanImage is not empty
+      - R6.2: checkPodman must verify the podman binary is on PATH
+      - R6.3: checkPodman must verify a container can start using the configured PodmanImage
+      - R6.4: checkPodman must return an error with diagnostic information when any check fails
+      - R6.5: RunStitch must call checkPodman before any other work
+
+non_goals:
+  - This PRD does not define the generation lifecycle (see prd006)
+  - This PRD does not define quality gates for code tasks (quality evaluation happens in inspect, see prd005-development-loop)
+  - This PRD does not define the prompt content or Claude behavior expectations
+  - This PRD does not define concurrent task execution; tasks run sequentially
+  - This PRD does not define context assembly (see prd007)
+
+acceptance_criteria:
+  - AC1: Stitch picks ready tasks from cupboard and executes them in isolated worktrees
+  - AC2: The orchestrator commits Claude's changes; Claude never runs git commands
+  - AC3: Task branches follow the pattern task/{baseBranch}-{issueID}
+  - AC4: Full ProjectContext YAML blob is injected into every stitch prompt
+  - AC5: Execution constitution is injected into every stitch prompt
+  - AC6: History artifacts (prompt, log, stats) are saved per task to the history directory
+  - AC7: InvocationRecord with cost, tokens, time, and LOC delta is recorded per task
+  - AC8: Recovery resets stale tasks and orphaned issues to ready
+  - AC9: Claude runs inside a podman container with same-path volume mounting
+  - AC10: RunStitch takes no parameters; all options come from Config

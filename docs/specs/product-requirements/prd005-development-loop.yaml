@@ -1,0 +1,96 @@
+id: prd005-development-loop
+title: Development Loop
+
+problem: |
+  Individual commands (measure, stitch, inspect, mend, pattern) are useful in isolation, but
+  a developer needs a structured loop that composes them into an iterative development method.
+  Without a loop, the developer manually sequences commands, decides when to inspect, and
+  tracks path health by hand.
+
+goals:
+  - G1: Define a single loop composing all five operations in a state machine
+  - G2: Monitor path health across cycles
+  - G3: Provide failure recovery within the loop
+  - G4: Record metrics per cycle
+  - G5: Surface human touchpoints for decisions that require judgment
+
+requirements:
+  R1:
+    title: Loop State Machine
+    items:
+      - R1.1: The loop must define states idle, measuring, stitching, inspecting, mending, patterning, reporting, and stopped
+      - R1.2: Transitions must follow the default order measure -> stitch -> inspect -> mend/pattern -> reporting
+      - R1.3: The loop must support skipping operations (e.g., run measure+stitch only without inspect)
+
+  R2:
+    title: Cycle Management
+    items:
+      - R2.1: Config.Cycles must control the number of measure-stitch cycles (default 1)
+      - R2.2: Config.MaxIssues must control the task limit per cycle
+      - R2.3: Config.PatternPeriod must control how often pattern runs (every N cycles, default never)
+      - R2.4: Config.StopOnFailure must control whether the loop stops on first failure or continues
+
+  R3:
+    title: Queue Empty Handling
+    items:
+      - R3.1: When the task queue is empty at stitch time, the loop must run measure to propose new work
+      - R3.2: If measure produces no tasks, the loop must transition to reporting
+
+  R4:
+    title: Failure Recovery
+    items:
+      - R4.1: A single task failure must not stop the loop; the task is reset to ready and the loop continues
+      - R4.2: When more than 50% of tasks in a cycle fail, the loop must transition to inspecting
+      - R4.3: Inspect findings that match mend patterns must trigger the mending state
+
+  R5:
+    title: Path Health Monitoring
+    items:
+      - R5.1: Path health indicators must include test pass rate, lint violation count, LOC growth rate, and task completion rate
+      - R5.2: Health indicators must be computed after each cycle
+      - R5.3: Degrading health must surface in the cycle report
+
+  R6:
+    title: Operation Dispatch
+    items:
+      - R6.1: Each operation (measure, stitch, inspect, mend, pattern) must be dispatchable independently
+      - R6.2: The loop must load operation definitions from cupboard and Config
+
+  R7:
+    title: Quality Evaluation
+    items:
+      - R7.1: Quality evaluation must happen in the inspect phase, not in stitch
+      - R7.2: Inspect must evaluate completed work against PRD requirements, test coverage, and code quality metrics
+      - R7.3: Inspect findings must feed into mend for automated fixes
+
+  R8:
+    title: Metrics Per Cycle
+    items:
+      - R8.1: Each cycle must record tokens used (input, output, cache_creation, cache_read), cost (USD), completed tasks, failed tasks, LOC delta, and documentation word delta
+      - R8.2: Metrics must be agent-agnostic (same format regardless of provider)
+
+  R9:
+    title: Human Touchpoints
+    items:
+      - R9.1: The loop must produce a report after each cycle summarizing what changed
+      - R9.2: The loop must surface decisions that require human judgment (e.g., conflicting requirements, architectural choices)
+      - R9.3: Reports must include path health indicators and cycle metrics
+
+  R10:
+    title: Loop Result
+    items:
+      - R10.1: The loop must return an aggregate result with total metrics, per-cycle details, final health assessment, and pending decisions
+      - R10.2: The result must be serializable to YAML for history saving
+
+non_goals:
+  - This PRD does not define what inspect, mend, or pattern do internally (those are separate PRDs in rel03.0)
+  - This PRD does not define parallel cycle execution; cycles run sequentially
+
+acceptance_criteria:
+  - AC1: The loop state machine transitions through measure, stitch, inspect, mend, pattern, and reporting
+  - AC2: Quality evaluation happens in inspect, not stitch
+  - AC3: Path health indicators are computed after each cycle
+  - AC4: A single task failure does not stop the loop
+  - AC5: Metrics per cycle include tokens, cost, task counts, and LOC delta
+  - AC6: Human touchpoints surface decisions and health indicators
+  - AC7: The loop result is serializable to YAML

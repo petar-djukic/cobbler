@@ -1,0 +1,89 @@
+id: prd002-measure
+title: Measure Workflow
+
+problem: |
+  Proposing work items requires reading project state, assembling context, and invoking an
+  agent to identify what needs to be built. Without a structured workflow, task proposals are
+  ad-hoc, miss dependencies, and lack alignment with the roadmap.
+
+  Cobbler-scaffold benchmarks (eng04) prove that batch proposals time out at three or more
+  issues due to super-linear scaling of thinking time. Iterative measure (one issue per Claude
+  call, each call seeing previously created issues) scales linearly and produces better
+  dependency awareness. This PRD codifies the iterative approach.
+
+goals:
+  - G1: Define the measure workflow that proposes tasks from project state
+  - G2: Use iterative measure (one issue per Claude call) instead of batch proposals
+  - G3: Inject full ProjectContext as a single YAML blob
+  - G4: Write proposed tasks directly to cupboard with dependency wiring
+  - G5: Record history artifacts per iteration
+
+requirements:
+  R1:
+    title: Workflow Configuration
+    items:
+      - R1.1: RunMeasure must take no parameters; all options come from Config
+      - R1.2: Measure must read SilenceAgent, MaxIssues, UserPrompt, GenerationBranch, and TokenFile from Config
+      - R1.3: Measure must read ClaudeArgs and PodmanArgs from Config for invocation
+      - R1.4: Config.MaxIssues controls the number of iterations (default 5)
+
+  R2:
+    title: Measure Workflow
+    items:
+      - R2.1: Measure must verify cupboard is initialized before proceeding
+      - R2.2: Measure must resolve and switch to the target branch
+      - R2.3: Measure must loop N times (Config.MaxIssues), producing one issue per iteration
+      - R2.4: Each iteration must query existing issues from cupboard so Claude sees previously created issues
+      - R2.5: Each iteration must build the prompt from the template with existing issues, limit of 1, output path, and user input
+      - R2.6: Each iteration must inject the planning constitution into the measure prompt
+      - R2.7: Each iteration must invoke Claude with the built prompt via podman (see R4)
+      - R2.8: Each iteration must parse the YAML output file written by Claude
+      - R2.9: Each iteration must import the proposed issue into cupboard with title and description
+      - R2.10: Each iteration must wire dependencies between the new issue and existing issues based on the dependency index
+      - R2.11: Each iteration must record an InvocationRecord on the created issue
+      - R2.12: Each iteration must save history artifacts (prompt, log, issues, stats) to the history directory
+      - R2.13: Measure must commit cupboard changes after all iterations complete
+
+  R3:
+    title: Prompt Templates
+    items:
+      - R3.1: The default measure template must be embedded via go:embed from a measure.tmpl file
+      - R3.2: A custom template path from Config must override the embedded default
+      - R3.3: MeasurePromptData must provide ProjectContext (YAML blob), Limit (always 1), OutputPath, UserInput, LinesMin, LinesMax, and PlanningConstitution
+
+  R4:
+    title: Claude Invocation
+    items:
+      - R4.1: Measure must invoke Claude Code CLI inside a podman container (same mechanism as prd001 R5)
+      - R4.2: Measure must call checkPodman before any other work (pre-flight)
+      - R4.3: On Claude failure or timeout, the iteration must log the error and continue to the next iteration
+
+  R5:
+    title: Issue Import
+    items:
+      - R5.1: proposedIssue must include index (int), title (string), description (string), and dependency (int)
+      - R5.2: importIssues must create tasks in cupboard for each proposed issue
+      - R5.3: importIssues must wire dependencies for issues with dependency >= 0
+      - R5.4: importIssues must commit cupboard changes after successful import
+
+  R6:
+    title: Pre-flight Checks
+    items:
+      - R6.1: RunMeasure must call checkPodman before any other work
+      - R6.2: RunMeasure must verify cupboard is initialized
+
+non_goals:
+  - This PRD does not define the generation lifecycle (see prd006)
+  - This PRD does not define the prompt content or planning constitution rules
+  - This PRD does not define concurrent iterations; iterations run sequentially
+  - This PRD does not define context assembly (see prd007)
+
+acceptance_criteria:
+  - AC1: Measure iterates N times, producing one issue per Claude call
+  - AC2: Each iteration sees previously created issues for dependency awareness
+  - AC3: Full ProjectContext YAML blob is injected into every measure prompt
+  - AC4: Planning constitution is injected into every measure prompt
+  - AC5: Proposed issues are written directly to cupboard with dependency wiring
+  - AC6: History artifacts (prompt, log, issues, stats) are saved per iteration
+  - AC7: InvocationRecord with cost, tokens, and time is recorded per issue
+  - AC8: RunMeasure takes no parameters; all options come from Config

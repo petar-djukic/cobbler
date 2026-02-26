@@ -1,198 +1,290 @@
-id: specifications
+id: specifications-cobbler
 title: Cobbler Specifications
 
 overview: |
-  Cross-reference index of all cobbler product requirements, use cases, and
-  test suites. This document traces the chain from PRDs through use cases
-  to test suites, ensuring complete coverage and traceability.
+  We build a Go CLI tool that automates AI-driven development through five commands: measure
+  (propose tasks), stitch (execute tasks), inspect (evaluate quality), mend (fix issues), and
+  pattern (propose design changes). This document indexes every PRD, use case, and test suite
+  in the project and shows how they trace to each other. For goals and boundaries see
+  VISION.yaml. For components and interfaces see ARCHITECTURE.yaml.
 
 roadmap_summary:
   - version: "01.0"
-    name: Core stitch (docs)
+    name: Core Measure and Stitch
     use_cases_done: 0
-    use_cases_total: 4
-    status: current
+    use_cases_total: 6
+    status: planned
+
   - version: "02.0"
-    name: Core stitch (code)
+    name: Stitch for Code
     use_cases_done: 0
     use_cases_total: 2
     status: planned
+
   - version: "03.0"
-    name: Measure
-    use_cases_done: 0
-    use_cases_total: 3
-    status: planned
-  - version: "04.0"
-    name: Inspect, mend, and pattern
+    name: Inspect, Mend, and Pattern
     use_cases_done: 0
     use_cases_total: 3
     status: planned
 
+  - version: "99.0"
+    name: Unscheduled
+    use_cases_done: 0
+    use_cases_total: 2
+    status: not started
+
 prd_index:
-  - id: prd001-agent-interface
-    title: "PRD: Agent Interface"
-    summary: Go interface for agent invocation replacing shell-out pattern
-  - id: prd002-stitch
-    title: "PRD: Stitch"
-    summary: Execute work through agents with context assembly and quality gates
-  - id: prd003-measure
-    title: "PRD: Measure"
-    summary: Assess project state and propose new tasks replacing make-work.sh
-  - id: prd004-development-loop
-    title: "PRD: Development Loop"
-    summary: Iterative loop composing all five operations into a development cycle
-  - id: prd005-observability
-    title: "PRD: Observability and Tracing"
-    summary: OpenTelemetry tracing for all cobbler operations
+  - id: prd001-stitch
+    title: Stitch Workflow
+    summary: Defines the stitch phase, Claude invocation in podman, orchestrator-managed git, recovery, and history artifacts
+    path: specs/product-requirements/prd001-stitch.yaml
+
+  - id: prd002-measure
+    title: Measure Workflow
+    summary: Defines iterative measure (one issue per Claude call), full context injection, and cupboard write-back
+    path: specs/product-requirements/prd002-measure.yaml
+
+  - id: prd003-agent-interface
+    title: Agent Interface
+    summary: Defines a Go interface for future agent provider abstraction via strategy pattern (deferred to rel99.0)
+    path: specs/product-requirements/prd003-agent-interface.yaml
+
+  - id: prd004-observability
+    title: Observability
+    summary: Defines structured logging, history artifacts, invocation records, LOC snapshots, token parsing, and aggregate stats
+    path: specs/product-requirements/prd004-observability.yaml
+
+  - id: prd005-development-loop
+    title: Development Loop
+    summary: Defines the loop state machine composing all five commands with path health monitoring and human touchpoints
+    path: specs/product-requirements/prd005-development-loop.yaml
+
+  - id: prd006-generation-lifecycle
+    title: Generation Lifecycle Management
+    summary: Defines generation start, run, resume, stop, reset, list, and switch operations with tag-based state tracking
+    path: specs/product-requirements/prd006-generation-lifecycle.yaml
+
+  - id: prd007-context-assembly
+    title: Context Assembly
+    summary: Defines ProjectContext struct, full context assembly into YAML blob, and phase-specific context overrides
+    path: specs/product-requirements/prd007-context-assembly.yaml
 
 use_case_index:
   - id: rel01.0-uc001-cupboard-connection
-    title: "Use Case: Cupboard Connection"
-    release: rel01.0
+    title: Cupboard Connection
+    release: "01.0"
     status: planned
-  - id: rel01.0-uc002-doc-task-execution
-    title: "Use Case: Documentation Task Execution"
-    release: rel01.0
-    status: planned
-  - id: rel01.0-uc003-agent-loop
-    title: "Use Case: Agent Loop"
-    release: rel01.0
-    status: planned
-  - id: rel01.0-uc004-benchmark-hello-world
-    title: "Use Case: Hello World Benchmark"
-    release: rel01.0
-    status: planned
-  - id: rel02.0-uc001-code-task-execution
-    title: "Use Case: Code Task Execution"
-    release: rel02.0
-    status: planned
-  - id: rel02.0-uc002-quality-gates
-    title: "Use Case: Quality Gates"
-    release: rel02.0
-    status: planned
-  - id: rel03.0-uc001-project-analysis
-    title: "Use Case: Project Analysis"
-    release: rel03.0
-    status: planned
-  - id: rel03.0-uc002-work-proposal
-    title: "Use Case: Work Proposal"
-    release: rel03.0
-    status: planned
-  - id: rel03.0-uc003-crumb-creation
-    title: "Use Case: Crumb Creation"
-    release: rel03.0
-    status: planned
-  - id: rel04.0-uc001-project-state-display
-    title: "Use Case: Project State Display"
-    release: rel04.0
-    status: planned
-  - id: rel04.0-uc002-test-lint-fix-loop
-    title: "Use Case: Test and Lint Fix Loop"
-    release: rel04.0
-    status: planned
-  - id: rel04.0-uc003-design-proposals
-    title: "Use Case: Design Proposals"
-    release: rel04.0
-    status: planned
+    path: specs/use-cases/rel01.0-uc001-cupboard-connection.yaml
 
-test_suite_index:
-  - id: test-rel01.0
-    title: "Test Suite: Release 01.0"
-    release: rel01.0
-    traces:
-      - rel01.0-uc001-cupboard-connection
-      - rel01.0-uc002-doc-task-execution
-      - rel01.0-uc003-agent-loop
-      - rel01.0-uc004-benchmark-hello-world
-    test_case_count: 4
-    path: docs/specs/test-suites/test-rel01.0.yaml
-  - id: test-rel02.0
-    title: "Test Suite: Release 02.0"
-    release: rel02.0
-    traces:
-      - rel02.0-uc001-code-task-execution
-      - rel02.0-uc002-quality-gates
-    test_case_count: 4
-    path: docs/specs/test-suites/test-rel02.0.yaml
-  - id: test-rel03.0
-    title: "Test Suite: Release 03.0"
-    release: rel03.0
-    traces:
-      - rel03.0-uc001-project-analysis
-      - rel03.0-uc002-work-proposal
-      - rel03.0-uc003-crumb-creation
-    test_case_count: 5
-    path: docs/specs/test-suites/test-rel03.0.yaml
-  - id: test-rel04.0
-    title: "Test Suite: Release 04.0"
-    release: rel04.0
-    traces:
-      - rel04.0-uc001-project-state-display
-      - rel04.0-uc002-test-lint-fix-loop
-      - rel04.0-uc003-design-proposals
-    test_case_count: 4
-    path: docs/specs/test-suites/test-rel04.0.yaml
+  - id: rel01.0-uc002-generation-lifecycle
+    title: Generation Lifecycle
+    release: "01.0"
+    status: planned
+    path: specs/use-cases/rel01.0-uc002-generation-lifecycle.yaml
+
+  - id: rel01.0-uc003-iterative-measure
+    title: Iterative Measure
+    release: "01.0"
+    status: planned
+    path: specs/use-cases/rel01.0-uc003-iterative-measure.yaml
+
+  - id: rel01.0-uc004-benchmark-hello-world
+    title: Hello World Benchmark
+    release: "01.0"
+    status: planned
+    path: specs/use-cases/rel01.0-uc004-benchmark-hello-world.yaml
+
+  - id: rel01.0-uc005-history-artifacts
+    title: History Artifacts
+    release: "01.0"
+    status: planned
+    path: specs/use-cases/rel01.0-uc005-history-artifacts.yaml
+
+  - id: rel01.0-uc006-context-assembly
+    title: Context Assembly
+    release: "01.0"
+    status: planned
+    path: specs/use-cases/rel01.0-uc006-context-assembly.yaml
+
+  - id: rel02.0-uc001-code-task-execution
+    title: Code Task Execution
+    release: "02.0"
+    status: planned
+    path: specs/use-cases/rel02.0-uc001-code-task-execution.yaml
+
+  - id: rel02.0-uc002-task-branch-naming
+    title: Task Branch Naming
+    release: "02.0"
+    status: planned
+    path: specs/use-cases/rel02.0-uc002-task-branch-naming.yaml
+
+  - id: rel03.0-uc001-quality-evaluation
+    title: Quality Evaluation
+    release: "03.0"
+    status: planned
+    path: specs/use-cases/rel03.0-uc001-quality-evaluation.yaml
+
+  - id: rel03.0-uc002-automated-fixes
+    title: Automated Fixes
+    release: "03.0"
+    status: planned
+    path: specs/use-cases/rel03.0-uc002-automated-fixes.yaml
+
+  - id: rel03.0-uc003-design-proposals
+    title: Design Proposals
+    release: "03.0"
+    status: planned
+    path: specs/use-cases/rel03.0-uc003-design-proposals.yaml
+
+  - id: rel99.0-uc001-agent-interface
+    title: Agent Interface Strategy Pattern
+    release: "99.0"
+    status: planned
+    path: specs/use-cases/rel99.0-uc001-agent-interface.yaml
+
+  - id: rel99.0-uc002-opentelemetry
+    title: OpenTelemetry Tracing
+    release: "99.0"
+    status: planned
+    path: specs/use-cases/rel99.0-uc002-opentelemetry.yaml
 
 prd_to_use_case_mapping:
   - use_case: rel01.0-uc001-cupboard-connection
-    prd: prd001-agent-interface
-    why_required: Cupboard connection uses interfaces defined in the agent interface PRD
-    coverage: partial
-  - use_case: rel01.0-uc002-doc-task-execution
-    prd: prd002-stitch
-    why_required: Documentation task execution is the primary stitch workflow
-    coverage: full
-  - use_case: rel01.0-uc003-agent-loop
-    prd: prd001-agent-interface
-    why_required: Agent conversation loop implements the Agent.Run interface
-    coverage: full
+    prd: prd001-stitch
+    why_required: Stitch reads and writes tasks from cupboard; validates cupboard integration
+    coverage: R2.1, R2.4, R2.6, R2.16
+
+  - use_case: rel01.0-uc001-cupboard-connection
+    prd: prd002-measure
+    why_required: Measure writes proposed tasks to cupboard; validates write-back
+    coverage: R2.1, R2.9, R5
+
+  - use_case: rel01.0-uc002-generation-lifecycle
+    prd: prd006-generation-lifecycle
+    why_required: Exercises generation start, run, resume, stop operations
+    coverage: R1, R2, R3, R4, R5
+
+  - use_case: rel01.0-uc003-iterative-measure
+    prd: prd002-measure
+    why_required: Validates iterative measure with one issue per Claude call
+    coverage: R1, R2, R3, R4, R5
+
+  - use_case: rel01.0-uc003-iterative-measure
+    prd: prd007-context-assembly
+    why_required: Measure uses full ProjectContext for each iteration
+    coverage: R1, R2, R6
+
   - use_case: rel01.0-uc004-benchmark-hello-world
-    prd: prd001-agent-interface
-    why_required: Benchmark exercises the agent interface end-to-end
-    coverage: partial
+    prd: prd001-stitch
+    why_required: Validates stitch workflow end-to-end with a benchmark fixture
+    coverage: R1, R2, R4, R5
+
   - use_case: rel01.0-uc004-benchmark-hello-world
-    prd: prd002-stitch
-    why_required: Benchmark validates stitch workflow with quality gates
-    coverage: partial
+    prd: prd004-observability
+    why_required: Validates history artifact saving and invocation record creation
+    coverage: R2, R3
+
+  - use_case: rel01.0-uc005-history-artifacts
+    prd: prd004-observability
+    why_required: Validates history artifact saving, structured logging, and stats
+    coverage: R1, R2, R3, R4, R5, R6, R7
+
+  - use_case: rel01.0-uc006-context-assembly
+    prd: prd007-context-assembly
+    why_required: Validates ProjectContext assembly, phase context loading, and override logic
+    coverage: R1, R2, R3, R4, R5, R6
+
   - use_case: rel02.0-uc001-code-task-execution
-    prd: prd002-stitch
-    why_required: Code task execution uses stitch worktree management
-    coverage: full
-  - use_case: rel02.0-uc002-quality-gates
-    prd: prd002-stitch
-    why_required: Quality gates are a stitch requirement for code tasks
-    coverage: full
-  - use_case: rel03.0-uc001-project-analysis
-    prd: prd003-measure
-    why_required: Project analysis is the first phase of the measure workflow
-    coverage: full
-  - use_case: rel03.0-uc002-work-proposal
-    prd: prd003-measure
-    why_required: Work proposal is the agent dispatch phase of measure
-    coverage: full
-  - use_case: rel03.0-uc003-crumb-creation
-    prd: prd003-measure
-    why_required: Crumb creation is the write-back phase of measure
-    coverage: full
-  - use_case: rel04.0-uc001-project-state-display
-    prd: prd004-development-loop
-    why_required: Inspect is a state in the development loop state machine
-    coverage: partial
-  - use_case: rel04.0-uc002-test-lint-fix-loop
-    prd: prd004-development-loop
-    why_required: Mend implements failure recovery in the development loop
-    coverage: full
-  - use_case: rel04.0-uc003-design-proposals
-    prd: prd004-development-loop
-    why_required: Pattern is triggered by path health degradation in the loop
-    coverage: partial
-  - use_case: rel04.0-uc003-design-proposals
-    prd: prd005-observability
-    why_required: Pattern uses trace data for design analysis
-    coverage: partial
+    prd: prd001-stitch
+    why_required: Validates stitch with git worktree isolation for code tasks
+    coverage: R2.7, R2.8, R2.12, R2.13, R2.15
+
+  - use_case: rel03.0-uc001-quality-evaluation
+    prd: prd005-development-loop
+    why_required: Validates inspect phase and quality evaluation
+    coverage: R1, R7
+
+  - use_case: rel03.0-uc002-automated-fixes
+    prd: prd005-development-loop
+    why_required: Validates mend phase triggered by inspect findings
+    coverage: R4.3
+
+  - use_case: rel03.0-uc003-design-proposals
+    prd: prd005-development-loop
+    why_required: Validates pattern phase for design proposals
+    coverage: R2.3
+
+  - use_case: rel99.0-uc001-agent-interface
+    prd: prd003-agent-interface
+    why_required: Validates Go interface implementation with strategy pattern
+    coverage: R1, R2, R3, R4, R5, R6, R7, R8, R9
+
+traceability_diagram: |
+  graph LR
+      subgraph PRDs
+          prd1["prd001\nstitch"]
+          prd2["prd002\nmeasure"]
+          prd3["prd003\nagent-interface"]
+          prd4["prd004\nobservability"]
+          prd5["prd005\ndevelopment-loop"]
+          prd6["prd006\ngeneration-lifecycle"]
+          prd7["prd007\ncontext-assembly"]
+      end
+
+      subgraph UseCases01["Release 01.0 Use Cases"]
+          uc1["uc001\ncupboard"]
+          uc2["uc002\nlifecycle"]
+          uc3["uc003\nmeasure"]
+          uc4["uc004\nbenchmark"]
+          uc5["uc005\nhistory"]
+          uc6["uc006\ncontext"]
+      end
+
+      subgraph UseCases02["Release 02.0 Use Cases"]
+          uc201["uc001\ncode-task"]
+          uc202["uc002\nbranch-naming"]
+      end
+
+      subgraph UseCases03["Release 03.0 Use Cases"]
+          uc301["uc001\nquality"]
+          uc302["uc002\nfixes"]
+          uc303["uc003\ndesign"]
+      end
+
+      uc1 --> prd1
+      uc1 --> prd2
+      uc2 --> prd6
+      uc3 --> prd2
+      uc3 --> prd7
+      uc4 --> prd1
+      uc4 --> prd4
+      uc5 --> prd4
+      uc6 --> prd7
+
+      uc201 --> prd1
+
+      uc301 --> prd5
+      uc302 --> prd5
+      uc303 --> prd5
 
 coverage_gaps: |
-  All five PRDs are referenced by at least one use case. prd005-observability
-  has limited direct use case coverage (only rel04.0-uc003 references it);
-  observability integration testing will require dedicated test infrastructure
-  with an OTLP collector.
+  We identify the following gaps in specification coverage.
+
+  Use cases without dedicated YAML files: All use cases except rel01.0-uc004-benchmark-hello-world
+  are indexed in the roadmap and SPECIFICATIONS but do not yet have standalone YAML files. These
+  will be created as implementation begins for each release.
+
+  PRD with deferred implementation: prd003-agent-interface defines a Go interface for provider
+  abstraction but implementation is deferred to rel99.0. The initial release uses Claude Code CLI
+  directly via podman.
+
+  PRD with deferred scope: prd004-observability defers OpenTelemetry tracing to rel99.0. The
+  initial release uses history artifacts (prompt, log, stats files) for observability.
+
+  Missing test suites: No test suites have been defined yet. Test suites will be created alongside
+  use case YAML files as implementation proceeds.
+
+references:
+  - VISION.yaml
+  - ARCHITECTURE.yaml
+  - road-map.yaml

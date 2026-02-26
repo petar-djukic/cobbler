@@ -1,0 +1,108 @@
+id: prd006-generation-lifecycle
+title: Generation Lifecycle Management
+
+problem: |
+  AI code generation produces many intermediate commits that should not pollute the main
+  branch. Without a structured lifecycle for generation sessions, developers must manually
+  create branches, manage tags, merge results, and clean up. Interrupted sessions leave stale
+  branches and tags that require manual recovery.
+
+  Cobbler-scaffold validates this lifecycle across three releases. The start/run/resume/stop
+  pattern, combined with tag-based state tracking and automatic recovery, handles interrupted
+  runs without data loss.
+
+goals:
+  - G1: Define a generation lifecycle with clear states and transitions
+  - G2: Automate branch creation, tagging, merging, and cleanup
+  - G3: Support recovery from interrupted generation runs
+  - G4: Provide listing and switching between multiple generations
+
+requirements:
+  R1:
+    title: Generation Naming
+    items:
+      - R1.1: Generation names must follow the pattern {GenPrefix}{timestamp} where timestamp is formatted as 2006-01-02-15-04-05
+      - R1.2: Tags must follow the pattern {generationName}-{suffix} where suffix is start, finished, merged, or abandoned
+
+  R2:
+    title: GeneratorStart
+    items:
+      - R2.1: GeneratorStart must record the current branch as the base branch; any clean branch is a valid starting point
+      - R2.2: GeneratorStart must tag the current base branch state as {generationName}-start
+      - R2.3: GeneratorStart must create and switch to the generation branch
+      - R2.4: GeneratorStart must reset cupboard and reinitialize with the generation prefix
+      - R2.5: GeneratorStart must store the base branch name in a recoverable location on the generation branch
+
+  R3:
+    title: GeneratorRun
+    items:
+      - R3.1: GeneratorRun must execute N cycles of measure followed by stitch
+      - R3.2: Config.Cycles must control the number of cycles (default 1)
+      - R3.3: GeneratorRun must use the current branch as the generation branch
+      - R3.4: Each cycle must log its progress with cycle number and total
+
+  R4:
+    title: GeneratorResume
+    items:
+      - R4.1: GeneratorResume must resolve the generation branch from Config.GenerationBranch or auto-detect
+      - R4.2: GeneratorResume must commit uncommitted work before switching branches
+      - R4.3: GeneratorResume must prune stale worktrees and remove the worktree base directory
+      - R4.4: GeneratorResume must recover stale tasks (reset orphaned in_progress issues to ready)
+      - R4.5: GeneratorResume must drain existing ready issues before starting new cycles
+
+  R5:
+    title: GeneratorStop
+    items:
+      - R5.1: GeneratorStop must resolve the generation branch from Config, current branch, or auto-detect
+      - R5.2: GeneratorStop must tag the generation as {generationName}-finished
+      - R5.3: GeneratorStop must read the base branch from the stored location, falling back to "main" if absent
+      - R5.4: GeneratorStop must switch to the base branch and merge the generation branch
+      - R5.5: GeneratorStop must tag the result as {generationName}-merged
+      - R5.6: GeneratorStop must create versioned tags on the base branch
+      - R5.7: GeneratorStop must delete the generation branch after successful merge
+
+  R6:
+    title: GeneratorReset
+    items:
+      - R6.1: GeneratorReset must switch to main
+      - R6.2: GeneratorReset must remove all task branches and worktrees for all generation branches
+      - R6.3: GeneratorReset must delete all generation branches
+      - R6.4: GeneratorReset must rename unmerged generation tags to {generationName}-abandoned
+      - R6.5: GeneratorReset must commit the clean state
+
+  R7:
+    title: GeneratorList
+    items:
+      - R7.1: GeneratorList must show active generation branches with lifecycle tags
+      - R7.2: GeneratorList must indicate the current branch
+      - R7.3: GeneratorList must show all generations including abandoned ones
+
+  R8:
+    title: GeneratorSwitch
+    items:
+      - R8.1: GeneratorSwitch must use Config.GenerationBranch as the target branch
+      - R8.2: GeneratorSwitch must commit uncommitted work before switching
+      - R8.3: GeneratorSwitch must only switch to generation branches or main
+      - R8.4: GeneratorSwitch must verify the target branch exists
+
+  R9:
+    title: Branch Resolution
+    items:
+      - R9.1: resolveBranch must return the explicit branch if provided and it exists
+      - R9.2: resolveBranch must return the single generation branch if exactly one exists
+      - R9.3: resolveBranch must return an error listing all branches when multiple exist
+      - R9.4: resolveBranch must return the current branch when no generation branches exist
+
+non_goals:
+  - This PRD does not define what happens inside measure or stitch cycles (see prd001, prd002)
+  - This PRD does not define multi-generation concurrency; one generation runs at a time
+
+acceptance_criteria:
+  - AC1: GeneratorStart creates a tagged generation branch with clean state from any clean base branch
+  - AC2: GeneratorStart records the base branch name for later recovery
+  - AC3: GeneratorRun executes the specified number of measure+stitch cycles
+  - AC4: GeneratorResume recovers from interruption and continues without data loss
+  - AC5: GeneratorStop reads the base branch and merges back with correct tags
+  - AC6: GeneratorReset returns to a clean main-only state
+  - AC7: GeneratorList shows active, merged, and abandoned generations
+  - AC8: GeneratorSwitch commits work and changes branches safely

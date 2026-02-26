@@ -1,87 +1,138 @@
-id: road-map
-title: Cobbler Roadmap
+# Cobbler Roadmap
+# Release schedule and use case status for cobbler.
+#
+# Commands (shoemaking terms):
+#   measure: assess project state, propose tasks
+#   stitch: execute work via agents
+#   inspect: evaluate output quality
+#   mend: fix tests and lint
+#   pattern: propose design changes
 
 releases:
-  - version: "00.0"
-    name: Cross-release milestones
-    status: planned
+  - id: "00.0"
+    focus: Cross-release milestones
     description: |
       Milestones that span multiple releases. These are not tied to a single
       release but track progress across the project lifecycle.
     use_cases: []
+    deliverables:
+      - Cupboard interface integration complete
+      - Prototype scripts (make-work.sh, do-work.sh) obsolete
+      - All five commands operational
 
-  - version: "01.0"
-    name: Core stitch (docs)
-    status: current
+  - id: "01.0"
+    focus: Core measure and stitch
     description: |
-      cobbler stitch --docs working end-to-end. Agents execute documentation
-      tasks via the stitch command with cupboard read/write via crumbs module.
+      Measure and stitch working end-to-end with full context injection,
+      container-isolated Claude, generation lifecycle, iterative measure,
+      history artifacts, config-driven orchestration, and orchestrator-managed
+      git. This release combines the core execution pipeline validated by
+      cobbler-scaffold.
     use_cases:
       - id: rel01.0-uc001-cupboard-connection
-        summary: Connect to crumbs cupboard via Go module import
+        name: Cupboard connection
+        description: Connect to crumbs cupboard via Go module import
         status: planned
-      - id: rel01.0-uc002-doc-task-execution
-        summary: Execute a documentation task via stitch command
+      - id: rel01.0-uc002-generation-lifecycle
+        name: Generation lifecycle
+        description: Start, run, resume, stop a generation with tagging and recovery
         status: planned
-      - id: rel01.0-uc003-agent-loop
-        summary: Run agent loop with prompt templates and tool execution
+      - id: rel01.0-uc003-iterative-measure
+        name: Iterative measure
+        description: Propose tasks one per Claude call with dependency wiring
         status: planned
       - id: rel01.0-uc004-benchmark-hello-world
-        summary: Run Hello World benchmark to validate stitch end-to-end
+        name: Benchmark hello world
+        description: Stitch a hello world Go CLI from a benchmark fixture
         status: planned
+      - id: rel01.0-uc005-history-artifacts
+        name: History artifacts
+        description: Save prompt, log, and stats per invocation to history directory
+        status: planned
+      - id: rel01.0-uc006-context-assembly
+        name: Context assembly
+        description: Build full ProjectContext YAML blob from project documents
+        status: planned
+    deliverables:
+      - cmd/cobbler CLI entry point with measure and stitch subcommands
+      - internal/measure iterative task proposal with full context injection
+      - internal/stitch task execution with orchestrator-managed git
+      - internal/context ProjectContext assembly and phase-specific overrides
+      - Generation lifecycle (start, run, resume, stop, reset, list, switch)
+      - Container-isolated Claude execution via podman
+      - History artifacts (prompt, log, stats per invocation)
+      - Config-driven orchestration (no method parameters)
+      - internal/crumbs cupboard wrapper using crumbs Go module
 
-  - version: "02.0"
-    name: Core stitch (code)
-    status: planned
+  - id: "02.0"
+    focus: Stitch for code
     description: |
-      cobbler stitch --code working. Agents execute code tasks with git worktree
-      management and quality gate validation (tests, lint, build).
+      Git worktree isolation for code tasks. Task branches follow the pattern
+      task/{baseBranch}-{issueID}. Quality gates (tests, lint, build) run
+      before merge.
     use_cases:
       - id: rel02.0-uc001-code-task-execution
-        summary: Execute a code task in a git worktree
+        name: Code task execution
+        description: Execute a code task in a git worktree with quality gates
         status: planned
-      - id: rel02.0-uc002-quality-gates
-        summary: Run tests, linter, and build before closing tasks
+      - id: rel02.0-uc002-task-branch-naming
+        name: Task branch naming
+        description: Task branches follow task/{baseBranch}-{issueID} pattern
         status: planned
+    deliverables:
+      - Git worktree creation and cleanup per task
+      - Task branch naming pattern task/{baseBranch}-{issueID}
+      - Quality gate execution (test, lint, build) before merge
+      - Stale task recovery from interrupted runs
 
-  - version: "03.0"
-    name: Measure
-    status: planned
+  - id: "03.0"
+    focus: Inspect, mend, and pattern
     description: |
-      cobbler measure working. Assess project state, analyze existing work,
-      and propose new tasks. Replaces make-work.sh prototype.
+      Quality evaluation in inspect, automated fixes in mend, and design
+      proposals in pattern. Inspect replaces quality gates that were originally
+      planned for stitch. The development loop state machine composes all five
+      commands.
     use_cases:
-      - id: rel03.0-uc001-project-analysis
-        summary: Read VISION, ARCHITECTURE, ROADMAP, and cupboard state
+      - id: rel03.0-uc001-quality-evaluation
+        name: Quality evaluation
+        description: Inspect evaluates completed work against PRDs and code quality
         status: planned
-      - id: rel03.0-uc002-work-proposal
-        summary: Agent proposes new tasks based on project state
+      - id: rel03.0-uc002-automated-fixes
+        name: Automated fixes
+        description: Mend fixes failing tests and lint violations
         status: planned
-      - id: rel03.0-uc003-crumb-creation
-        summary: Write approved proposals to cupboard as new crumbs
+      - id: rel03.0-uc003-design-proposals
+        name: Design proposals
+        description: Pattern proposes architectural changes based on specifications
         status: planned
+    deliverables:
+      - internal/inspect command implementation
+      - internal/mend command implementation
+      - internal/pattern command implementation
+      - Development loop state machine composing all five commands
+      - Path health monitoring across cycles
 
-  - version: "04.0"
-    name: Inspect, mend, and pattern
-    status: planned
-    description: |
-      Remaining commands. inspect evaluates output quality, mend fixes
-      issues found by inspect, pattern proposes design changes.
-    use_cases:
-      - id: rel04.0-uc001-project-state-display
-        summary: Show current project state and recent work via inspect
-        status: planned
-      - id: rel04.0-uc002-test-lint-fix-loop
-        summary: Automatically fix failing tests and lint issues via mend
-        status: planned
-      - id: rel04.0-uc003-design-proposals
-        summary: Propose architectural changes via pattern command
-        status: planned
-
-  - version: "99.0"
-    name: Unscheduled
-    status: planned
+  - id: "99.0"
+    focus: Unscheduled
     description: |
       Work items not yet assigned to a release. These may be future features,
       exploratory ideas, or items awaiting prioritization.
-    use_cases: []
+    use_cases:
+      - id: rel99.0-uc001-agent-interface
+        name: Agent interface strategy pattern
+        description: Implement prd003 Go interface for provider abstraction
+        status: planned
+      - id: rel99.0-uc002-opentelemetry
+        name: OpenTelemetry tracing
+        description: Span-based tracing with OTLP export (prd004 future scope)
+        status: planned
+    deliverables:
+      - Agent interface with strategy pattern (prd003)
+      - OpenTelemetry tracing infrastructure (prd004 future)
+      - Recursive operations (multi-level decomposition)
+      - Parallel task execution
+
+# Status values for use cases:
+#   planned: Defined but not started
+#   in-progress: Currently being implemented
+#   done: Complete and verified

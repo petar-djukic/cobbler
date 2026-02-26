@@ -1,291 +1,472 @@
-id: architecture
+id: architecture-cobbler
 title: Cobbler Architecture
 
 overview:
   summary: |
-    Cobbler cobbles together context for AI coding agents. We use the crumbs
-    cupboard to store all work: both cobbler's own (planning, evaluation, design
-    proposals) and work intended for agents (documentation, code). A property on
-    each crumb indicates its type: planning, documentation, coding, or operations.
-    Cobbler reads tasks from the cupboard, assembles context from project files
-    and templates, dispatches each task to an agent one-shot, evaluates the
-    result, updates task state, and creates new work as it discovers it. Over
-    repeated cycles, cobbler iteratively manages what agents see and do. The
-    agent does not iterate; it receives everything it needs upfront and returns
-    a result.
+    Cobbler is a Go CLI tool that automates AI-driven development through five commands:
+    measure (propose tasks), stitch (execute tasks), inspect (evaluate quality), mend (fix
+    issues), and pattern (propose design changes). We read tasks from cupboard (crumbs),
+    assemble the full project context into a single YAML blob, dispatch one-shot to Claude
+    Code running in a podman container, and update task state.
 
-    Cobbler replaces prototype bash scripts (make-work.sh and do-work.sh) with
-    a structured Go CLI. Where the scripts built prompts through string
-    concatenation and shelled out to bd commands, cobbler uses Go templates for
-    prompt construction and calls cupboard methods directly via the imported
-    crumbs module.
+    The system operates as a config-driven orchestrator. All workflow options live in a YAML
+    configuration file, making every generation reproducible. RunMeasure and RunStitch take
+    no parameters. Two prompt templates (measure.tmpl and stitch.tmpl) are embedded with
+    config-based override. The orchestrator manages all git operations; Claude is forbidden
+    from running git commands.
+
   lifecycle: |
-    A work item flows through cobbler in stages: ready (item exists in cupboard,
-    eligible for pickup), taken (cobbler claims item via Table.Set, begins
-    prompt construction), executing (agent receives prompt, produces output),
-    quality gate (cobbler runs validation), and closed (cobbler updates state,
-    records outcome as completed or failed). The crumbs Crumb entity has states:
-    draft, pending, ready, taken, completed, failed, archived. Cobbler operates
-    on crumbs in the ready state and transitions them through taken to completed
-    or failed.
+    Generations are the primary unit of work. A generation starts from a tagged main state,
+    creates a branch, runs measure-stitch cycles, and merges the result back to main.
+
+    States: created (branch exists) -> running (cycles in progress) -> finished (tagged,
+    ready to merge) -> merged (on main, branch deleted). An alternative terminal state is
+    abandoned (generation was never merged).
+
+    The generation branch name follows the pattern {GenPrefix}{timestamp}. Tags mark
+    lifecycle events: {branch}-start, {branch}-finished, {branch}-merged,
+    {branch}-abandoned.
+
   coordination_pattern: |
-    Cobbler uses a pull model. The CLI queries the cupboard for crumbs in the
-    ready state, picks one, claims it by setting state to taken, and proceeds
-    with execution. No push notifications or pub/sub announcements exist;
-    cobbler drives all state transitions. This pattern matches the crumbs
-    design: crumbs provides storage, not operation.
+    The cobbler workflow has two core phases that run in sequence within each cycle.
+
+    Measure reads the project state and invokes Claude iteratively, one issue per call. Each
+    call sees previously created issues for dependency awareness. We import proposed tasks
+    into cupboard with dependency wiring.
+
+    Stitch picks ready tasks from cupboard one at a time. For each task: create a git
+    worktree on a task branch (task/{baseBranch}-{issueID}), build a prompt with full
+    ProjectContext, invoke Claude in a podman container, commit Claude's changes (the
+    orchestrator manages all git), merge the task branch back, record metrics, save history
+    artifacts, close the task.
+
+    Recovery handles interrupted runs. On resume, we scan for stale task branches, remove
+    them, reset their issues to ready, and continue.
 
 interfaces:
-  - name: Cupboard Integration
+  - name: Config-Driven Orchestrator
     summary: |
-      We import github.com/petar-djukic/crumbs and use the Cupboard and Table
-      interfaces directly. Callers use the pattern
-      Cupboard.GetTable("crumbs").Get(id).
+      The Orchestrator is the entry point. Projects configure it with a YAML configuration
+      file and invoke commands through cobra CLI. Config holds all settings. The YAML file
+      is the sole source of truth for all options, making every generation reproducible.
     data_structures:
-      - "Cupboard (attach, detach, GetTable)"
-      - "Table (Get, Set, Delete, Fetch)"
-      - "Config (Backend, DataDir)"
+      - "Config: all orchestrator settings with YAML tags (module path, source dirs, Claude args, podman args, max issues, cycles, templates, history dir, constitutions)"
+      - "MeasurePromptData: template data for measure prompt (ProjectContext, Limit, OutputPath, UserInput, LinesMin, LinesMax, PlanningConstitution)"
+      - "StitchPromptData: template data for stitch prompt (Title, ID, IssueType, Description, ExecutionConstitution, ProjectContext)"
+      - "InvocationRecord: metrics per Claude invocation (Caller, StartedAt, DurationS, Tokens, CostUSD, LOCBefore, LOCAfter, Diff)"
+      - "HistoryStats: YAML-serializable per-invocation stats saved to history directory"
+      - "ClaudeResult: token usage from a Claude invocation (InputTokens, OutputTokens, CacheCreationTokens, CacheReadTokens, CostUSD, RawOutput)"
+      - "ProjectContext: assembled YAML blob of all docs, specs, source code, and issues (see prd007)"
     operations:
-      - "Get(id) — retrieve entity by ID"
-      - "Set(id, data) — create or update entity"
-      - "Delete(id) — remove entity"
-      - "Fetch(filter) — query with field filter"
-  - name: Agent Interface
+      - "GeneratorStart(): tag main, create generation branch (prd006)"
+      - "GeneratorRun(): run measure+stitch cycles (prd006)"
+      - "GeneratorResume(): recover and continue interrupted run (prd006)"
+      - "GeneratorStop(): merge generation into main, tag, clean up (prd006)"
+      - "GeneratorReset(): destroy all generations, return to clean main (prd006)"
+      - "GeneratorList(): show active and past generations (prd006)"
+      - "GeneratorSwitch(): switch between generation branches (prd006)"
+      - "Measure(): propose tasks via Claude (prd002)"
+      - "Stitch(): execute ready tasks in worktrees (prd001)"
+      - "Inspect(): evaluate output quality (prd005, rel03.0)"
+      - "Mend(): fix issues found by inspect (prd005, rel03.0)"
+      - "Pattern(): propose design changes (prd005, rel03.0)"
+      - "Stats(): print LOC and documentation metrics (prd004)"
+
+  - name: Prompt Templates
     summary: |
-      The Agent interface abstracts LLM providers. We start with Claude via
-      anthropic-sdk-go; the interface enables future providers without changing
-      dispatch code.
+      Two Go text/template strings are embedded from measure.tmpl and stitch.tmpl. Projects
+      can override them via Config. Prompts are injected with phase-specific constitutions
+      (planning for measure, execution for stitch) and a ProjectContext YAML blob containing
+      all docs, specs, source code, and existing issues.
     data_structures:
-      - "Request (Messages, Tools, Config)"
-      - "Response (Content, ToolCalls, Usage, StopReason)"
-      - "Message (Role, Content, ToolCallID)"
-    operations:
-      - "Agent.Run(ctx, req) — send prompt to LLM and return response"
-  - name: Tool Interface
-    summary: |
-      Tools are functions the agent can invoke during execution. Each tool
-      declares its name, description, and parameter schema.
-    operations:
-      - "Name() — tool identifier"
-      - "Description() — human-readable description"
-      - "Parameters() — JSON Schema for arguments"
-      - "Execute(ctx, args) — run tool with arguments"
-  - name: Executor Interface
-    summary: |
-      The Executor manages the claim-execute-close workflow for a single task.
-    operations:
-      - "Execute(ctx, crumb) — claim, build prompt, run agent, validate, update state"
-  - name: Prompt Builder
-    summary: |
-      The Prompt Builder constructs prompts from templates and task context.
-      Templates live in internal/prompt as Go templates or embedded strings.
+      - "MeasurePromptData: ProjectContext (string, YAML blob), Limit (int, always 1 for iterative measure), OutputPath (string), UserInput (string), LinesMin (int), LinesMax (int), PlanningConstitution (embedded YAML)"
+      - "StitchPromptData: Title, ID, IssueType, Description (all strings), ExecutionConstitution (embedded YAML), ProjectContext (string, YAML blob built from worktree)"
 
 components:
-  - name: CLI (cmd/cobbler)
+  - name: Orchestrator
     responsibility: |
-      Entry point using cobra for command parsing. Registers subcommands
-      (measure, stitch, inspect, mend, pattern) with cobra. Initializes
-      config via viper.
+      Entry point. Holds Config, wires all subsystems through method dispatch. Manages
+      structured logging with optional generation tagging and phase-relative elapsed time.
     capabilities:
-      - Command parsing and help generation
-      - Configuration initialization
-  - name: Config (internal/config)
+      - Construct from Config or configuration YAML file
+      - Wire all subsystems through method dispatch
+      - Phase-aware structured logging to stderr
+    references:
+      - prd001-stitch
+      - prd002-measure
+
+  - name: Generator
     responsibility: |
-      Loads and validates configuration. Cupboard settings, agent settings,
-      and execution settings.
+      Manages the generation lifecycle. Creates generation branches, runs cycles, merges
+      results to main, handles resume from interrupted runs. Uses git tags to mark lifecycle
+      events.
     capabilities:
-      - Load from file and environment
-      - Validate required fields
-  - name: Measure (internal/measure)
+      - Start, run, resume, stop, reset, list, switch generation branches
+      - Tag lifecycle events on git
+      - Store and recover base branch for merge
+    references:
+      - prd006-generation-lifecycle
+
+  - name: Measure
     responsibility: |
-      Reads VISION, ARCHITECTURE, ROADMAP, and cupboard state. Invokes an
-      agent to analyze project state and propose new crumbs. Replaces
-      make-work.sh.
+      Iterative task proposal. Loops N times, each call produces one issue. Each iteration
+      sees previously created issues for dependency awareness. Imports proposed tasks into
+      cupboard with dependency wiring. Records invocation metrics and saves history artifacts.
     capabilities:
-      - Project state reading
-      - Context assembly for planning agent
-      - Proposal output and cupboard write-back
-  - name: Stitch (internal/stitch)
+      - Build measure prompt with full ProjectContext and planning constitution
+      - Parse Claude YAML output into task
+      - Import task into cupboard with dependency wiring
+      - Save history artifacts per iteration
+    references:
+      - prd002-measure
+
+  - name: Stitch
     responsibility: |
-      Picks a ready crumb, claims it, builds a prompt, runs the agent,
-      validates output, and closes the crumb. Replaces do-work.sh.
+      Task execution. Picks ready tasks from cupboard, creates worktrees, invokes Claude,
+      commits Claude's changes (orchestrator manages all git; Claude forbidden from git),
+      merges branches, records metrics, and closes tasks.
     capabilities:
-      - Task picking and claiming
-      - Work-type-specific context assembly
-      - Git worktree management for code tasks
-      - Quality gate execution
-  - name: Inspect (internal/inspect)
+      - Create git worktree per task on a dedicated branch
+      - Invoke Claude in worktree with full ProjectContext and execution constitution
+      - Commit worktree changes and merge task branch
+      - Record metrics and save history artifacts per task
+      - Recover stale tasks on resume
+    references:
+      - prd001-stitch
+
+  - name: Inspect
     responsibility: |
-      Evaluates recent work for quality issues. Runs an agent with inspection
-      prompts. Reports findings without making changes.
+      Quality evaluation. Analyzes completed work against PRD requirements, checks test
+      coverage, measures code quality metrics, and identifies issues for mend.
     capabilities:
-      - Quality evaluation
-      - Finding reporting
-  - name: Mend (internal/mend)
+      - Evaluate work against PRD requirements
+      - Check test pass rate and coverage
+      - Measure code quality metrics
+      - Generate findings for mend
+    references:
+      - prd005-development-loop
+
+  - name: Mend
     responsibility: |
-      Fixes issues identified by inspect. Claims a crumb with findings,
-      invokes an agent to make corrections, validates the fix.
+      Automated fixes. Runs targeted repairs (test fixes, lint fixes, documentation
+      corrections) based on inspect findings.
     capabilities:
-      - Issue fixing
-      - Fix validation
-  - name: Pattern (internal/pattern)
+      - Fix failing tests
+      - Fix lint violations
+      - Correct documentation issues
+    references:
+      - prd005-development-loop
+
+  - name: Pattern
     responsibility: |
-      Proposes architectural changes. Analyzes project structure, identifies
-      technical debt or design improvements, outputs proposals as new crumbs
-      or documentation updates.
+      Design proposals. Analyzes the codebase for architectural patterns, suggests
+      refactoring opportunities, and creates design proposals grounded in specifications.
     capabilities:
-      - Structural analysis
-      - Design proposal generation
-  - name: Agent (internal/claude)
+      - Analyze codebase for patterns
+      - Propose refactoring opportunities
+      - Create specification-grounded design proposals
+    references:
+      - prd005-development-loop
+
+  - name: Context Assembly
     responsibility: |
-      Claude implementation of the Agent interface using anthropic-sdk-go.
-      Manages API calls, streaming responses, and tool execution.
+      Builds a comprehensive YAML blob (ProjectContext) from the project's documentation,
+      specifications, source code, and existing issues. This context is injected into both
+      measure and stitch prompts. Over 30 struct types model the document schema.
+
+      Phase-specific context files (measure_context.yaml and stitch_context.yaml) override
+      global context settings at invocation time. When a phase context file exists, its
+      non-empty fields replace the corresponding Config values. When absent, Config defaults
+      apply unchanged.
     capabilities:
-      - API call management
-      - Streaming responses
-      - Rate limiting and retries
-  - name: Crumbs Client (internal/crumbs)
+      - Load and marshal vision, architecture, specifications, roadmap, PRDs, use cases, test suites
+      - Load engineering guidelines and constitutions
+      - Load Go source files from configured directories
+      - Parse existing issues from cupboard into structured format
+      - Assemble all components into a single YAML string
+      - Load per-phase context override files (PhaseContext) at invocation time
+    references:
+      - prd007-context-assembly
+
+  - name: Commands
     responsibility: |
-      Thin wrapper around the imported crumbs module. Provides convenience
-      methods for common operations.
+      Wrapper functions for external tools. Centralizes binary names as constants and
+      provides structured access to command output for git, cupboard, and Go CLI commands.
     capabilities:
-      - Fetch ready crumbs
-      - Claim and close crumbs
-      - Add metadata
+      - Git operations (branch, worktree, tag, merge, diff)
+      - Cupboard operations (ready, show, update, close)
+      - Go toolchain operations (build, test, vet)
+    references:
+      - prd001-stitch
+      - prd002-measure
+
+  - name: Stats
+    responsibility: |
+      Collects Go LOC counts (production and test) and documentation word counts. Output
+      feeds invocation records, history artifacts, and the stats command.
+    capabilities:
+      - Count Go LOC by production and test files
+      - Count documentation words by glob pattern
+    references:
+      - prd004-observability
+
+  - name: Cupboard Client
+    responsibility: |
+      Wrapper around the crumbs cupboard module for task management. Reads and writes tasks,
+      manages state transitions, and queries ready work.
+    capabilities:
+      - Query ready tasks with optional filters
+      - Create tasks with title and description
+      - Update task status (ready, in_progress, completed, failed)
+      - Wire dependencies between tasks
+    references:
+      - prd001-stitch
+      - prd002-measure
 
 design_decisions:
-  - id: 1
-    title: Import crumbs as Go module
+  - id: DD1
+    title: Crumbs import as Go module
     decision: |
-      We import github.com/petar-djukic/crumbs and call cupboard methods
-      directly rather than wrapping bd CLI commands.
+      We import crumbs as a Go module for direct cupboard access. This provides type safety,
+      compile-time checking, and avoids shell-out overhead.
     benefits:
-      - Type safety
-      - No process spawning overhead
-      - Direct access to entity structs
+      - Type-safe task management
+      - No CLI parsing or string manipulation
+      - Compile-time dependency verification
     alternatives_rejected:
-      - Wrapping bd CLI commands loses type information and adds shell parsing complexity
-  - id: 2
-    title: Agent interface for provider abstraction
+      - "CLI wrapper: parsing text output is fragile and loses type information"
+
+  - id: DD2
+    title: Agent strategy pattern (deferred)
     decision: |
-      The Agent interface decouples dispatch from LLM provider. We implement
-      Claude first via anthropic-sdk-go.
+      We define a Go interface for agent invocation (prd003) but defer implementation to
+      rel99.0. The initial implementation uses Claude Code CLI directly via podman. The
+      interface enables future provider abstraction without changing calling code.
     benefits:
-      - Add providers without changing executor code
-      - Test with mock agents
+      - Clean separation between orchestration and agent invocation
+      - Future provider support without refactoring
     alternatives_rejected:
-      - Hardcoding Claude calls spreads provider-specific logic throughout the codebase
-  - id: 3
-    title: Prompt templates in internal/prompt
+      - "Direct SDK integration: anthropic-sdk-go adds a dependency and limits us to one provider"
+
+  - id: DD3
+    title: Two prompt templates
     decision: |
-      Templates are Go templates or embedded strings in the internal/prompt
-      package.
+      We use exactly two prompt templates (measure.tmpl and stitch.tmpl), embedded via
+      go:embed with Config-based override. This replaces the per-work-type template system
+      from the original design.
     benefits:
-      - Templates are testable Go code
-      - IDE support for editing
-      - Compile-time errors for missing variables
+      - Simpler than per-work-type routing
+      - Full project context eliminates the need for selective context per work type
+      - Config override provides customization without code changes
     alternatives_rejected:
-      - External template files add deployment complexity and make testing harder
-  - id: 4
-    title: Commands named after shoemaking terms
+      - "Per-work-type templates: unnecessary complexity when full context injection eliminates the need for selective assembly"
+
+  - id: DD4
+    title: Container-isolated Claude execution
     decision: |
-      Cobbler commands (measure, stitch, inspect, mend, pattern) follow the
-      shoemaking metaphor. The five commands cover a full cycle: assess,
-      execute, evaluate, fix, redesign.
+      We run Claude inside a podman container. The orchestrator wraps every invocation with
+      podman run, mounting the working directory at the same path inside the container. A
+      pre-flight check verifies podman, image availability, and container capability.
     benefits:
-      - Memorable naming
-      - Consistent theme with project name
+      - Isolates Claude from the host environment
+      - Makes builds reproducible across machines
+      - Absolute paths in prompts resolve correctly via same-path mounting
     alternatives_rejected:
-      - Generic names (plan, run, check, fix, design) lack distinctiveness
-  - id: 5
-    title: Git worktree isolation for code tasks
+      - "Running Claude as bare binary on host: no isolation, environment differences harder to debug"
+
+  - id: DD5
+    title: Full context injection
     decision: |
-      Code tasks execute in a worktree on a task-specific branch. Main branch
-      stays clean during execution.
+      We assemble the entire project state (docs, specs, source code, issues) into a single
+      YAML blob and inject it into every prompt. This replaces selective context assembly
+      per work type.
     benefits:
-      - Main branch stays clean during execution
-      - Multiple tasks can run in parallel in future
-      - Failed tasks leave main unaffected
+      - Claude sees the full picture, reducing hallucination of non-existent interfaces
+      - Eliminates work-type routing logic
+      - Scaffold benchmarks show this reduces turns from ~51 to 2-4
     alternatives_rejected:
-      - Working directly on main risks leaving partial changes on failure
-  - id: 6
-    title: Quality gates before closing
+      - "Selective context assembly: complex routing logic, risk of missing relevant context"
+
+  - id: DD6
+    title: Git worktree isolation
     decision: |
-      The executor runs validation (tests, linter, build) before marking a
-      crumb completed.
+      Each stitch task runs in a separate git worktree on its own branch. Worktrees are
+      temporary and cleaned up after merge. Task branches follow the pattern
+      task/{baseBranch}-{issueID}.
     benefits:
-      - Catch failures before closing
-      - Enable mend to fix issues
+      - Tasks do not interfere with each other
+      - Generation branch stays clean; failed tasks leave no partial commits
     alternatives_rejected:
-      - Closing immediately after agent output loses the feedback loop
+      - "Running Claude on the generation branch directly: risks partial commits and merge conflicts"
+
+  - id: DD7
+    title: Orchestrator-managed git
+    decision: |
+      The orchestrator stages and commits Claude's changes in the worktree. Claude is
+      forbidden from running git commands. This ensures consistent commit messages,
+      proper attribution, and prevents accidental branch operations.
+    benefits:
+      - Consistent commit format with task and PRD references
+      - No risk of Claude running destructive git operations
+      - Orchestrator controls the merge strategy
+    alternatives_rejected:
+      - "Letting Claude commit: inconsistent messages, risk of force-push or branch deletion"
+
+  - id: DD8
+    title: Three-phase constitutions
+    decision: |
+      Project governance is split into three constitutions: design (scaffolded to projects
+      for interactive documentation work), planning (embedded in binary, injected into measure
+      prompts), and execution (embedded in binary, injected into stitch prompts). Each
+      contains only the rules relevant to its phase.
+    benefits:
+      - Agents receive only the rules they need, reducing prompt bloat
+      - Clear separation of concerns between documentation, planning, and implementation
+      - Constitutions are YAML-structured and machine-parseable
+    alternatives_rejected:
+      - "Single monolithic constitution: every agent sees all rules regardless of relevance"
+
+  - id: DD9
+    title: History artifacts over OpenTelemetry
+    decision: |
+      We save prompt, log, and stats YAML per invocation to a history directory. This
+      replaces planned OpenTelemetry tracing, which is deferred to rel99.0.
+    benefits:
+      - Simpler than OTel; no collector infrastructure required
+      - Files are inspectable with standard tools (cat, grep, yaml parsers)
+      - Proven effective in scaffold across 105 test cases
+    alternatives_rejected:
+      - "OpenTelemetry: requires collector infrastructure, complex span hierarchy, disproportionate to current scale"
+
+  - id: DD10
+    title: Quality evaluation in inspect, not stitch
+    decision: |
+      Quality gates (test pass rate, lint violations, code quality metrics) are evaluated in
+      the inspect phase, not during stitch. Stitch focuses on execution; inspect focuses on
+      evaluation.
+    benefits:
+      - Separation of concerns between execution and evaluation
+      - Inspect can evaluate across multiple tasks for pattern detection
+      - Stitch stays focused on single-task execution
+    alternatives_rejected:
+      - "Quality gates in stitch: conflates execution with evaluation, prevents cross-task analysis"
+
+  - id: DD11
+    title: Config-driven with no parameters
+    decision: |
+      RunMeasure and RunStitch take no parameters. All options come from the Config struct
+      loaded from configuration YAML. This makes every invocation reproducible from the
+      configuration file alone.
+    benefits:
+      - Configuration YAML records exactly what options were used
+      - No parameter drift between CLI flags and config
+      - Reproducible generations
+    alternatives_rejected:
+      - "Method parameters: values not recorded, invocations not reproducible"
+
+  - id: DD12
+    title: Task branch naming convention
+    decision: |
+      Task branches follow the pattern task/{baseBranch}-{issueID}. This encodes the
+      generation context and task identity in the branch name, making recovery possible
+      by scanning branch names.
+    benefits:
+      - Recovery can identify which generation a stale task belongs to
+      - Branch names are self-documenting
+      - Pattern-based scanning replaces explicit state tracking
+    alternatives_rejected:
+      - "Random branch names: no recovery context, requires external state mapping"
 
 technology_choices:
   - component: Language
     technology: Go
-    purpose: CLI tool; strong typing, concurrency, single binary
+    purpose: CLI tool and all production code
   - component: CLI framework
     technology: cobra
-    purpose: Command parsing, help generation, subcommands
-  - component: Configuration
-    technology: viper
-    purpose: File and environment config, YAML/JSON support
-  - component: Cupboard
-    technology: github.com/petar-djukic/crumbs
-    purpose: Work item storage; imported as Go module
-  - component: LLM client
-    technology: anthropic-sdk-go
-    purpose: Claude API; streaming, tool use
-  - component: Testing
-    technology: Go testing + testify
-    purpose: Unit and integration tests
+    purpose: Command parsing and help generation
+  - component: Issue tracking
+    technology: crumbs (cupboard)
+    purpose: Task management via Go module import
+  - component: Container runtime
+    technology: Podman
+    purpose: Isolates Claude execution in containers
+  - component: AI execution
+    technology: Claude Code (CLI)
+    purpose: Code generation and task execution inside podman containers
+  - component: Build automation
+    technology: cobbler-scaffold (magefiles)
+    purpose: Exposes orchestrator methods as Mage targets for consuming projects
+  - component: YAML parsing
+    technology: gopkg.in/yaml.v3
+    purpose: Configuration, context assembly, and document parsing
+  - component: Prompt templating
+    technology: Go text/template
+    purpose: Parameterized prompts with data injection
+  - component: Version control
+    technology: git (worktrees, tags, branches)
+    purpose: Isolation, lifecycle tracking, and merge
 
 project_structure:
   - path: cmd/cobbler/
-    role: CLI entry point, cobra root command
-  - path: pkg/agent/
-    role: Agent and Tool interfaces (public API)
-  - path: pkg/executor/
-    role: Executor interface (public API)
+    role: CLI entry point (cobra commands)
   - path: internal/config/
-    role: Configuration loading and validation
-  - path: internal/claude/
-    role: Claude Agent implementation
-  - path: internal/prompt/
-    role: Prompt templates and builder
+    role: Configuration struct and YAML loading
+  - path: internal/orchestrator/
+    role: Orchestrator struct, logging, method dispatch
   - path: internal/measure/
-    role: Measure command logic
+    role: Measure workflow (iterative task proposal)
   - path: internal/stitch/
-    role: Stitch command logic (executor impl)
+    role: Stitch workflow (task execution in worktrees)
   - path: internal/inspect/
-    role: Inspect command logic
+    role: Inspect command (quality evaluation)
   - path: internal/mend/
-    role: Mend command logic
+    role: Mend command (automated fixes)
   - path: internal/pattern/
-    role: Pattern command logic
+    role: Pattern command (design proposals)
+  - path: internal/context/
+    role: ProjectContext assembly from docs, specs, source code
+  - path: internal/commands/
+    role: Git, cupboard, and Go command wrappers
+  - path: internal/stats/
+    role: LOC and documentation metrics
   - path: internal/crumbs/
-    role: Crumbs cupboard convenience wrapper
+    role: Cupboard client wrapper
+  - path: internal/prompt/
+    role: Embedded prompt templates (measure.tmpl, stitch.tmpl)
+  - path: internal/constitutions/
+    role: Embedded constitutions (design.yaml, planning.yaml, execution.yaml)
   - path: docs/
-    role: Project documentation (VISION, ARCHITECTURE, specs)
-  - path: .claude/
-    role: Project rules for AI agents
+    role: Documentation and specifications
+  - path: magefiles/
+    role: Build automation targets
 
 implementation_status:
-  current_focus: |
-    Phase 01.0: stitch for documentation. The focus is cobbler stitch
-    executing documentation tasks with cupboard read/write via the crumbs
-    module and prompt templates for doc work.
+  current_focus: Specification phase; incorporating scaffold learnings into cobbler specs
   progress:
-    - "01.0": Current
-    - "02.0": Planned
-    - "03.0": Planned
-    - "04.0": Planned
+    - planned: Core measure and stitch workflows with full context injection (rel01.0)
+    - planned: Generation lifecycle management (rel01.0)
+    - planned: Container-isolated Claude execution via podman (rel01.0)
+    - planned: History artifacts and observability (rel01.0)
+    - planned: Context assembly with phase-specific overrides (rel01.0)
+    - planned: Git worktree isolation for code tasks (rel02.0)
+    - planned: Inspect, mend, and pattern commands (rel03.0)
 
 related_documents:
-  - doc: VISION.yaml
-    purpose: Goals, boundaries, phases, success criteria
-  - doc: prd-cupboard-core.md (crumbs)
-    purpose: Cupboard interface, Table interface, lifecycle
-  - doc: prd-crumbs-interface.md (crumbs)
-    purpose: Crumb entity, state transitions, properties
-  - doc: prd-trails-interface.md (crumbs)
-    purpose: Trail entity, exploration sessions
+  - doc: docs/VISION.yaml
+    purpose: What we build and why; success criteria and boundaries
+  - doc: docs/road-map.yaml
+    purpose: Release schedule and use case status
+  - doc: docs/specs/product-requirements/prd001-stitch.yaml
+    purpose: Stitch workflow, Claude invocation, recovery, orchestrator-managed git
+  - doc: docs/specs/product-requirements/prd002-measure.yaml
+    purpose: Iterative measure workflow, task proposal, cupboard write-back
+  - doc: docs/specs/product-requirements/prd003-agent-interface.yaml
+    purpose: Go interface for future agent provider abstraction (rel99.0)
+  - doc: docs/specs/product-requirements/prd004-observability.yaml
+    purpose: Structured logging, history artifacts, invocation records, stats
+  - doc: docs/specs/product-requirements/prd005-development-loop.yaml
+    purpose: Loop state machine composing all five commands
+  - doc: docs/specs/product-requirements/prd006-generation-lifecycle.yaml
+    purpose: Generation start, run, resume, stop, reset, list, switch
+  - doc: docs/specs/product-requirements/prd007-context-assembly.yaml
+    purpose: Full ProjectContext assembly and phase-specific overrides
