@@ -1,0 +1,44 @@
+id: rel04.0-uc006-composite-scoring
+title: "Use Case: Composite Adequacy Scoring"
+
+summary: |
+  After inspect runs available verification techniques, the composite scorer
+  aggregates their results into a single adequacy score that determines
+  whether the stitch output is accepted, sent to mend, or flagged for human
+  review.
+
+actor: Developer running cobbler inspect or development loop
+
+trigger: |
+  Two or more verification techniques have returned typed results for the
+  current stitch output.
+
+flow:
+  - F1: "Inspect collects typed results from all verification techniques that ran."
+  - F2: "Techniques that returned a skip verdict are excluded from scoring."
+  - F3: "The scorer validates that at least two non-skip results exist."
+  - F4: "Each technique result is weighted according to the configured weight table."
+  - F5: "The composite score is computed as the weighted average of available scores."
+  - F6: "The scorer verifies that deterministic techniques carry at least 50% of the active weight."
+  - F7: "The score is compared against configurable thresholds to determine the action."
+  - F8: "Adequacy metrics are recorded in the invocation history artifacts."
+  - F9: "The composite result (score, action, per-technique details) is returned to the development loop."
+
+touchpoints:
+  - T1: "Aggregates technique results with configurable weights (prd008-inspect-verification R7)"
+  - T2: "Enforces deterministic weight minimum (prd008-inspect-verification R7)"
+  - T3: "Records adequacy metrics in history artifacts (prd008-inspect-verification R8)"
+  - T4: "Integrates with path health monitoring (prd004-development-loop R6)"
+
+success_criteria:
+  - S1: "Composite score computed as weighted average excluding skipped techniques"
+  - S2: "Score >= 0.80 triggers accept, 0.50-0.79 triggers mend, < 0.50 triggers human review"
+  - S3: "Invalid score returned when fewer than two techniques produce results"
+  - S4: "Deterministic techniques carry at least 50% of active scoring weight"
+
+out_of_scope:
+  - Running individual verification techniques (each technique is a separate use case)
+  - Modifying technique weights at runtime based on historical performance
+  - Multi-task aggregate scoring across an entire cycle
+
+test_suite: test-rel04.0
