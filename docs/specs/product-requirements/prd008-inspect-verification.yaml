@@ -1,0 +1,195 @@
+id: prd008-inspect-verification
+title: "PRD: Inspect Verification Portfolio"
+
+problem: |
+  Cobbler's inspect command evaluates stitch output but lacks structured
+  verification techniques. Current quality gates check compilation, test
+  execution, and lint status. These are necessary but insufficient: code that
+  compiles and passes its own tests may still violate specification requirements,
+  contain inadequate tests, or diverge from reference behavior. Without a
+  portfolio of complementary verification techniques, inspect cannot distinguish
+  high-quality output from output that merely satisfies shallow checks.
+
+  The engineering guideline eng09-verification-adequacy establishes six
+  verification techniques grounded in the testing literature. This PRD specifies
+  the product requirements for implementing three techniques in rel03.0
+  (translation validation, mutation testing, differential testing) and three in
+  rel04.0 (property-based test derivation, contract injection, composite
+  scoring). Each technique catches a different fault class. Their combination
+  produces a composite adequacy score that drives accept, mend, or human-review
+  decisions.
+
+goals:
+  - G1: Translation validation that checks stitch output against PRD acceptance criteria and use case success criteria
+  - G2: Mutation testing that measures test suite adequacy for generated code
+  - G3: Differential testing that compares generated output against benchmark fixtures
+  - G4: Property-based test derivation from PRD requirement language
+  - G5: Contract injection from specification constraints into generated code
+  - G6: Composite adequacy scoring that aggregates technique results into accept/mend/review decisions
+  - G7: Correlated failure mitigation ensuring at least 50% of scoring weight is deterministic
+
+requirements:
+  R1:
+    title: Technique Interface
+    items:
+      - R1.1: |
+          Each verification technique implements a common interface: a name,
+          an applicable check (whether the technique can run given available
+          inputs), a run method that returns a typed result, and a description
+          of the fault class it targets.
+      - R1.2: |
+          The typed result contains the technique name, a numeric score from
+          0.0 to 1.0, a verdict (pass, fail, or skip), an evidence list
+          (criterion IDs, file paths, counterexamples), and whether the
+          technique is deterministic.
+  R2:
+    title: Translation Validation
+    items:
+      - R2.1: |
+          Inspect resolves the PRD and use case that drove each stitch task
+          by reading the crumb's work_type and tracing to the originating
+          specification documents.
+      - R2.2: |
+          Mechanical checks run first: file existence, symbol presence
+          (function, struct, interface names), compilation, and test execution.
+          Each check maps to one or more acceptance criteria.
+      - R2.3: |
+          An LLM-as-judge pass evaluates semantic criteria that resist
+          mechanical checking. The judge receives criterion text and the
+          produced diff but not the stitch prompt, to reduce correlated
+          reasoning between generation and verification.
+      - R2.4: |
+          The translation validation score is the ratio of passed criteria
+          (mechanical and semantic) to total criteria.
+  R3:
+    title: Mutation Testing
+    items:
+      - R3.1: |
+          Inspect runs a Go mutation testing tool against packages modified
+          by stitch. The tool injects syntactic mutations (operator
+          replacement, statement deletion, condition negation, boundary
+          changes) and checks whether existing tests detect each mutant.
+      - R3.2: |
+          The mutation score is killed mutants divided by total non-equivalent
+          mutants. Equivalent mutant detection uses heuristics: mutants that
+          produce identical compiled output are excluded.
+      - R3.3: |
+          Surviving mutants are reported with file path, line number, mutation
+          type, original code, and mutated code. Reports link to the test
+          files that should have caught the mutation.
+  R4:
+    title: Differential Testing
+    items:
+      - R4.1: |
+          Benchmark fixtures in the tests/ directory define inputs, expected
+          outputs, and a comparison method per task type. Code tasks use
+          build-and-run with stdout comparison. Documentation tasks check
+          section presence and schema conformance.
+      - R4.2: |
+          Inspect runs stitch-produced code against fixture inputs and
+          compares results using the specified comparison method. Divergences
+          are reported with input, expected output, actual output, and
+          comparison method.
+      - R4.3: |
+          Missing fixtures cause the technique to skip without penalizing the
+          composite adequacy score. Fixture coverage is reported as a
+          separate metric.
+  R5:
+    title: Property-Based Test Derivation
+    items:
+      - R5.1: |
+          Inspect derives testable properties from PRD requirement items
+          using template-based pattern matching. Property categories include
+          type presence, enumeration, invariant, idempotence, and state
+          transition.
+      - R5.2: |
+          Generated property tests use Go fuzz testing or a property-based
+          testing library. Properties that fail to derive from ambiguous
+          requirement language are reported as warnings, not failures.
+      - R5.3: |
+          The property pass rate is passing properties divided by total
+          derived properties. Properties are traced to their source PRD
+          requirement ID.
+  R6:
+    title: Contract Injection
+    items:
+      - R6.1: |
+          Inspect generates contract assertions (preconditions, postconditions,
+          invariants) from PRD requirements and injects them into copies of
+          stitch-produced source files. Contracts are guarded by a Go build
+          tag so they incur zero overhead when not checking.
+      - R6.2: |
+          Contract types map to PRD language patterns. "Must receive X"
+          becomes a precondition. "Must return Y" becomes a postcondition.
+          "Must always maintain Z" becomes an invariant. Contracts focus on
+          exported function boundaries.
+      - R6.3: |
+          Contract violations include the PRD requirement ID for traceability.
+          The violation count and violation details are included in the
+          technique result.
+  R7:
+    title: Composite Adequacy Scoring
+    items:
+      - R7.1: |
+          The composite adequacy score is the weighted average of available
+          technique scores. Techniques that were skipped are excluded from the
+          denominator. A minimum of two techniques must produce results for
+          the composite score to be valid.
+      - R7.2: |
+          Default weights: translation validation 0.30, mutation testing 0.25,
+          differential testing 0.20, property-based testing 0.15, contract
+          injection 0.10. Weights are configurable.
+      - R7.3: |
+          Thresholds determine the action: score >= 0.80 accepts the output,
+          score 0.50-0.79 sends failing checks to mend, score < 0.50 flags
+          for human review. Thresholds are configurable.
+      - R7.4: |
+          At least 50% of the scoring weight must come from deterministic
+          techniques. The default weights allocate 0.70 to deterministic
+          techniques and 0.30 to hybrid translation validation.
+  R8:
+    title: Adequacy Metrics
+    items:
+      - R8.1: |
+          Inspect records per-task adequacy metrics: mutation score, AC
+          conformance rate, property pass rate, contract violation count,
+          differential match rate, and composite adequacy score. Metrics are
+          included in invocation history artifacts.
+      - R8.2: |
+          Adequacy metrics integrate with path health monitoring
+          (prd004-development-loop R6). Declining mutation scores or AC
+          conformance rates across cycles signal degradation and trigger mend
+          or pattern operations.
+  R9:
+    title: Tracing Integration
+    items:
+      - R9.1: |
+          Each verification technique creates a span under the inspect
+          operation span (prd005-observability R5). Span attributes include
+          technique name, score, verdict, and evidence count. The composite
+          score is recorded on the inspect operation span.
+
+non_goals:
+  - Formal proof or proof-carrying code; deferred until LLM proof generation matures for Go
+  - Real-time verification during stitch execution; inspect runs after stitch completes
+  - Verifying external dependencies or third-party code
+  - Custom mutation operators beyond standard syntactic mutations
+  - Replacing crumbs trail-based quality tracking; adequacy metrics complement trails
+
+acceptance_criteria:
+  - "Technique interface defines name, applicability check, run method, and typed result"
+  - "Translation validation resolves PRD and use case from crumb, runs mechanical and semantic checks"
+  - "Mutation testing runs against modified packages and reports mutation score with surviving mutant details"
+  - "Differential testing compares output against benchmark fixtures with configurable comparison methods"
+  - "Property-based test derivation extracts properties from PRD requirements via template matching"
+  - "Contract injection generates assertions from PRD language patterns guarded by build tag"
+  - "Composite score aggregates available technique scores with configurable weights and thresholds"
+  - "Deterministic techniques carry at least 50% of composite scoring weight"
+  - "Adequacy metrics recorded in invocation history and integrated with path health monitoring"
+  - "Verification technique spans created under inspect operation span with standard attributes"
+
+references:
+  - "eng09-verification-adequacy: Engineering guideline defining the verification strategy"
+  - "prd004-development-loop: Path health monitoring (R6) consumes adequacy metrics"
+  - "prd005-observability: Tracing integration (R5) for verification technique spans"
+  - "prd002-stitch: Stitch produces the output that inspect verifies"

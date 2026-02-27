@@ -1,11 +1,14 @@
 id: test-rel03.0
-title: "Test Suite: Release 03.0 — Measure"
+title: "Test Suite: Release 03.0 — Measure and Inspect"
 release: rel03.0
 
 traces:
   - rel03.0-uc001-project-analysis
   - rel03.0-uc002-work-proposal
   - rel03.0-uc003-crumb-creation
+  - rel03.0-uc004-translation-validation
+  - rel03.0-uc005-mutation-testing
+  - rel03.0-uc006-differential-testing
 
 preconditions:
   - Project has VISION.yaml, ARCHITECTURE.yaml, and road-map.yaml
@@ -64,3 +67,104 @@ test_cases:
       crumbs_created_positive: true
       all_crumbs_state: pending
       all_crumbs_have_work_type: true
+
+  - use_case: rel03.0-uc004-translation-validation
+    name: Mechanical checks pass for conforming output
+    description: Verify mechanical checks detect file existence, symbol presence, and compilation.
+    inputs:
+      crumb_work_type: code
+      prd_acceptance_criteria_count: 5
+      files_exist: true
+      symbols_present: true
+      compilation_passes: true
+    expected:
+      mechanical_checks_pass: true
+      criteria_evaluated: 5
+
+  - use_case: rel03.0-uc004-translation-validation
+    name: Missing file fails mechanical check
+    description: Verify translation validation fails when a required file is missing.
+    inputs:
+      crumb_work_type: code
+      files_exist: false
+    expected:
+      mechanical_checks_pass: false
+      failing_criterion_reported: true
+
+  - use_case: rel03.0-uc004-translation-validation
+    name: LLM judge receives criterion and diff only
+    description: Verify the LLM judge does not receive the stitch prompt.
+    inputs:
+      semantic_criteria_count: 2
+    expected:
+      judge_receives_criterion_text: true
+      judge_receives_diff: true
+      judge_receives_stitch_prompt: false
+
+  - use_case: rel03.0-uc005-mutation-testing
+    name: Mutation score computed from killed mutants
+    description: Verify mutation score is killed divided by total non-equivalent mutants.
+    inputs:
+      modified_packages: 1
+      test_files_exist: true
+      total_mutants: 20
+      killed_mutants: 16
+      equivalent_mutants: 2
+    expected:
+      mutation_score: 0.89
+      non_equivalent_total: 18
+
+  - use_case: rel03.0-uc005-mutation-testing
+    name: Surviving mutants reported with details
+    description: Verify surviving mutants include file, line, and mutation type.
+    inputs:
+      surviving_mutants: 2
+    expected:
+      report_has_file_path: true
+      report_has_line_number: true
+      report_has_mutation_type: true
+      report_has_original_code: true
+
+  - use_case: rel03.0-uc005-mutation-testing
+    name: Skip when no tests exist
+    description: Verify technique skips gracefully when modified packages have no tests.
+    inputs:
+      test_files_exist: false
+    expected:
+      verdict: skip
+      score_not_penalized: true
+
+  - use_case: rel03.0-uc006-differential-testing
+    name: Code task fixture comparison
+    description: Verify code task runs build-and-execute with stdout comparison.
+    inputs:
+      task_type: code
+      fixture_exists: true
+      expected_stdout: "hello world"
+      actual_stdout: "hello world"
+    expected:
+      comparison_method: stdout
+      match: true
+
+  - use_case: rel03.0-uc006-differential-testing
+    name: Divergence reported with details
+    description: Verify divergences include input, expected, actual, and comparison method.
+    inputs:
+      task_type: code
+      fixture_exists: true
+      expected_stdout: "hello world"
+      actual_stdout: "hello"
+    expected:
+      match: false
+      report_has_input: true
+      report_has_expected: true
+      report_has_actual: true
+
+  - use_case: rel03.0-uc006-differential-testing
+    name: Skip when no fixtures exist
+    description: Verify technique skips without penalizing composite score.
+    inputs:
+      fixture_exists: false
+    expected:
+      verdict: skip
+      score_not_penalized: true

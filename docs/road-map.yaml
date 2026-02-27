@@ -76,6 +76,15 @@ releases:
       - id: rel03.0-uc003-crumb-creation
         summary: Create cupboard crumbs from proposed tasks with dependencies
         status: planned
+      - id: rel03.0-uc004-translation-validation
+        summary: Check stitch output against PRD acceptance criteria via mechanical and semantic checks
+        status: planned
+      - id: rel03.0-uc005-mutation-testing
+        summary: Measure test suite adequacy by injecting faults and checking detection
+        status: planned
+      - id: rel03.0-uc006-differential-testing
+        summary: Compare generated output against benchmark fixtures
+        status: planned
 
   - version: "04.0"
     name: Development loop and advanced commands
