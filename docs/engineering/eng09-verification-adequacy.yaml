@@ -1,0 +1,339 @@
+id: eng09-verification-adequacy
+title: Verification Adequacy for Generated Code
+
+introduction: |
+  Cobbler generates code and documentation through one-shot agent dispatch. The
+  inspect command evaluates whether each stitch output conforms to its driving
+  specification. This guideline defines the verification strategy: which techniques
+  we use, what each catches and misses, how they compose into a portfolio, and how
+  we measure adequacy.
+
+  The problem is well-established. AI-generated code exhibits systematically higher
+  defect rates than human-written code. CodeRabbit (2025) found 1.75 times more
+  logic errors and 2.74 times more cross-site scripting vulnerabilities in
+  AI-generated pull requests. Siddiq et al. (2025) found that 29.5% of GitHub
+  Copilot-generated Python code contained security weaknesses. Perry et al. (2023)
+  found that developers using AI assistance produced more vulnerabilities while
+  believing their code was more secure. These numbers establish that verification
+  must scale with generation velocity.
+
+  No single verification technique is sufficient. Fagan (1976) showed code
+  inspections catch 60-65% of defects, testing alone catches roughly 30%, and
+  combined approaches reach approximately 99%. Each technique detects a different
+  class of faults. Adequacy is not a property of any single technique but an
+  emergent property of their combination. Cobbler's inspect command implements a
+  portfolio of complementary techniques, each contributing an independent signal
+  to a composite adequacy score.
+
+sections:
+  - title: Theoretical boundaries
+    content: |
+      Rice's theorem (1953) establishes that all non-trivial semantic properties
+      of programs are undecidable. We cannot build a general algorithm that takes
+      an arbitrary program and an arbitrary specification and returns a correct
+      yes/no answer. Dijkstra (1970) restated this for practitioners: testing can
+      reveal the presence of bugs but never prove their absence. A finite number
+      of test cases cannot exhaust the infinite space of possible executions.
+
+      Fetzer (1988) extended the argument to formal verification, noting that
+      programs operate in the physical world and no formal proof accounts for
+      hardware faults or the gap between mathematical models and physical machines.
+      The pragmatic resolution, adopted by the field, is that verification is
+      always relative to a model. We verify that code satisfies a specification
+      within an assumed model of computation.
+
+      These limits frame what inspect can and cannot guarantee. Inspect does not
+      prove correctness. It measures the degree of conformance across multiple
+      independent verification dimensions. A high composite score means the output
+      passed many diverse checks, reducing the probability of undetected faults
+      without eliminating it.
+
+  - title: Translation validation
+    content: |
+      Translation validation (Pnueli, Siegel, Singerman 1998) verifies each
+      generated output individually against its specification rather than trusting
+      the generator. We do not need to prove the LLM correct; we verify each
+      output.
+
+      Cobbler's PRDs contain numbered acceptance criteria ("AC1: Stitch picks ready
+      tasks from cupboard..."). Use cases contain success criteria ("S1:
+      Documentation crumb claimed and state set to taken"). These are testable
+      propositions. Inspect resolves the PRD and use case that drove each stitch
+      task, then evaluates each criterion against the produced diff and files.
+
+      The evaluation is hybrid. Mechanical checks run first: file existence, symbol
+      presence (function, struct, interface), test execution, compilation. An
+      LLM-as-judge pass handles semantic criteria that resist mechanical checking.
+      The LLM judge receives the criterion text, the diff, and relevant source
+      context but not the stitch prompt, to avoid correlated reasoning between
+      generation and verification.
+
+      Fault class: specification conformance errors. Catches cases where the code
+      compiles and tests pass but does not satisfy the stated requirements.
+
+      Deterministic: partially. Mechanical checks are deterministic; LLM judgment
+      is not.
+
+  - title: Mutation testing
+    content: |
+      Mutation testing (DeMillo, Lipton, Sayward 1978) answers whether the tests
+      are any good by injecting small faults (mutants) into the code and checking
+      whether tests detect them. The mutation score (killed mutants divided by
+      total mutants) is the most robust known metric for test adequacy, stronger
+      than line or branch coverage (Inozemtseva and Holmes 2014).
+
+      The technique rests on two hypotheses. The competent programmer hypothesis
+      assumes real programs are close to correct, so small perturbations model real
+      faults. The coupling effect hypothesis assumes test suites that detect simple
+      faults also detect complex ones. Offutt (1992) provided empirical evidence
+      for the coupling effect.
+
+      When stitch produces both code and tests, the tests may share blind spots
+      with the code. Mutation testing is fully mechanical and orthogonal to LLM
+      reasoning. Inspect runs a Go mutation testing tool against the modified
+      packages. Surviving mutants are reported with file, line, mutation type, and
+      original versus mutated code.
+
+      Fault class: test suite inadequacy. Catches cases where tests exist but fail
+      to exercise fault-sensitive paths.
+
+      Deterministic: yes. No LLM in the checking path.
+
+  - title: Differential testing
+    content: |
+      Differential testing (McKeeman 1998) compares two or more implementations
+      of the same specification on the same inputs and flags divergences. The
+      technique requires no oracle other than agreement. Yang et al. (2011) used
+      it to find hundreds of bugs in C compilers.
+
+      Cobbler uses benchmark fixtures in the tests/ directory. Each fixture defines
+      inputs, expected outputs, and a comparison method (exact match, structural
+      equivalence, or property satisfaction). Inspect runs the stitch-produced code
+      against fixture inputs and compares results.
+
+      Comparison methods vary by task type. Code tasks use build-and-run with
+      stdout comparison. Documentation tasks check section presence, schema
+      conformance, and content bounds. The technique applies only when a benchmark
+      fixture exists; missing fixtures are skipped without penalizing the adequacy
+      score.
+
+      Fault class: behavioral divergence from reference. Catches cases where the
+      code compiles, tests pass, and acceptance criteria appear satisfied, but
+      runtime behavior differs from the known-good reference.
+
+      Deterministic: yes when fixtures exist. Not applicable otherwise.
+
+  - title: Property-based test derivation
+    content: |
+      Property-based testing (Claessen and Hughes 2000) declares invariants and
+      algebraic laws, then generates random inputs to try to violate them. Endres
+      et al. (2025) found 23-37% improvement in defect detection for LLM-generated
+      code compared to traditional test-driven development.
+
+      Cobbler's PRD requirement items are close to property statements. "Response.Usage
+      must track InputTokens, OutputTokens, CacheCreationTokens, and CacheReadTokens"
+      is one step from a testable property: for all valid Requests, the Response.Usage
+      struct has all four fields populated with non-negative values.
+
+      Inspect derives properties from PRD requirement items using template-based
+      pattern matching on requirement language. Property categories include type
+      presence ("must track X, Y, Z"), enumeration ("must distinguish A, B, C"),
+      invariant ("must not exceed N"), and idempotence ("must be serializable to
+      YAML"). The derivation is deterministic; no LLM generates the properties.
+
+      Generated property tests use Go's built-in fuzz testing or Gopter for richer
+      generators. Properties that fail to derive from ambiguous requirement language
+      are reported as warnings, not failures.
+
+      Fault class: invariant violations and edge case failures. Catches faults that
+      manifest only under specific input combinations that hand-written tests
+      would not cover.
+
+      Deterministic: yes. Template-based derivation, mechanical execution.
+
+  - title: Contract injection
+    content: |
+      Design by Contract (Meyer 1992) embeds preconditions, postconditions, and
+      invariants directly into code. Every execution becomes a verification
+      opportunity. Hoare (1969) provided the theoretical foundation: if precondition
+      P holds before executing statement S, then postcondition Q holds after.
+
+      Inspect generates contract assertions from PRD requirements and injects them
+      into copies of the stitch-produced source files. Contracts are guarded by a
+      Go build tag (contracts) so they incur zero overhead when not checking.
+      Contract violations include the PRD requirement ID for traceability.
+
+      Contract types mirror PRD language patterns. "Must receive X" becomes a
+      precondition asserting non-nil input. "Must return Y" becomes a postcondition
+      checking the return value. "Must always maintain Z" becomes an invariant
+      checked after every method call. State machine contracts ("must transition
+      from A to B") assert valid state transitions.
+
+      Contracts focus on interface boundaries (exported functions, public methods)
+      where specifications are most precise. Contract injection is deterministic
+      and template-based.
+
+      Fault class: interface contract violations. Catches faults at function
+      boundaries where inputs or outputs violate specified constraints.
+
+      Deterministic: yes. No LLM in the derivation or checking path.
+
+  - title: Correlated failure mitigation
+    content: |
+      Knight and Leveson (1986) found that independently developed N-version
+      programs fail in correlated ways, challenging the fundamental assumption of
+      diversity-based verification. This critique applies with greater force when
+      an LLM judges LLM output. The generation model and the judge model share
+      training data, architectural biases, and failure modes. A subtle semantic
+      error that the generating LLM finds plausible may also appear plausible to
+      the judging LLM.
+
+      Cobbler mitigates correlated failure through portfolio composition. Of the
+      six verification techniques, five are fully deterministic: mutation testing,
+      differential testing, property-based testing, contract injection, and the
+      mechanical subset of translation validation. Only the semantic judgment
+      component of translation validation involves an LLM.
+
+      The architectural rule is that at least half the techniques in the portfolio
+      must be deterministic, measured by weight in the composite score. The default
+      weights allocate 0.70 to deterministic techniques and 0.30 to the hybrid
+      translation validation. LLM-based judgment is a complement to mechanical
+      checking, not a substitute.
+
+      Additional mitigations: the LLM judge receives different context than the
+      generating LLM (criterion text and diff, not the stitch prompt). The judge
+      prompt is structurally different from the generation prompt. These reduce but
+      do not eliminate correlation.
+
+  - title: Composite adequacy scoring
+    content: |
+      Each verification technique produces a typed result: technique name, numeric
+      score (0.0 to 1.0), verdict (pass, fail, or skip), and evidence (criterion
+      IDs, file paths, counterexamples). The composite adequacy score aggregates
+      individual scores with configurable weights.
+
+      Default weights reflect technique reliability and independence:
+
+        Translation validation:   0.30 (hybrid, covers spec conformance directly)
+        Mutation testing:         0.25 (strongest test adequacy metric, deterministic)
+        Differential testing:     0.20 (definitive when fixtures exist, sparse coverage)
+        Property-based testing:   0.15 (strong for invariants, limited derivation scope)
+        Contract injection:       0.10 (runtime checks, limited to interface boundaries)
+
+      The composite score is the weighted average of available technique scores.
+      Techniques that were skipped (no fixture, no derivable properties) are
+      excluded from the denominator. A minimum of two techniques must produce
+      results for the composite score to be valid.
+
+      Thresholds determine the action:
+
+        Score >= 0.80:  Accept. Stitch output passes inspect.
+        Score 0.50-0.79:  Mend. Send failing checks to mend for automated fix.
+        Score < 0.50:  Human review. Flag for manual inspection.
+
+      Thresholds are configurable in configuration.yaml. The composite score
+      integrates with path health monitoring (prd004-development-loop R6) as a
+      per-task quality signal alongside test pass rate, lint violations, and LOC
+      growth.
+
+  - title: Adequacy metrics
+    content: |
+      Cobbler tracks and reports the following adequacy metrics per stitch output:
+
+        Mutation score = killed_mutants / total_mutants
+        AC conformance rate = passed_criteria / total_criteria
+        Property pass rate = passing_properties / total_properties
+        Contract violation count = number of contract assertion failures
+        Differential match rate = matching_fixtures / total_fixtures
+        Composite adequacy score = weighted_average(available_technique_scores)
+
+      These metrics are recorded in the invocation history artifacts alongside
+      token usage, cost, and LOC delta. Over multiple cycles, the metrics feed
+      path health monitoring: declining mutation scores or AC conformance rates
+      signal codebase degradation and trigger mend or pattern operations.
+
+  - title: Specification completeness
+    content: |
+      A recurring meta-problem across all verification approaches is specification
+      completeness. Heitmeyer et al. (1996) found that incompleteness and ambiguity
+      in specifications were a primary source of software defects. If the
+      specification fails to constrain some behavior, the generated code may do
+      anything in the unconstrained space, and no amount of checking against the
+      specification will detect it.
+
+      Cobbler mitigates this through structured specification formats. PRDs require
+      numbered goals, requirement groups with items, and acceptance criteria. Use
+      cases require flow steps, touchpoints tracing to PRD requirements, and
+      success criteria. The mage analyze command checks traceability chains and
+      cross-references. These structural constraints reduce but do not eliminate
+      specification gaps.
+
+      Residual risks include: acceptance criteria that are true by definition
+      (tautological), requirements that constrain syntax but not semantics, and
+      behaviors that fall between the cracks of multiple PRDs. The composite
+      adequacy score partially addresses this through technique diversity: mutation
+      testing and property-based testing can detect faults that the specification
+      does not explicitly cover, because they test the code's internal consistency
+      rather than its conformance to stated requirements.
+
+  - title: Decision record
+    content: |
+      We chose a multi-technique portfolio over three alternatives.
+
+      Pure LLM review (rejected): using an LLM to review LLM output creates
+      correlated failure modes. The judge shares training data and biases with the
+      generator. Perry et al. (2023) showed developers using AI assistance believed
+      their code was more secure while producing more vulnerabilities. The same
+      confidence-competence gap applies to LLM-as-judge.
+
+      Coverage-only gates (rejected): Inozemtseva and Holmes (2014) found that
+      coverage level has low correlation with mutation score once test suite size
+      is controlled for. Line coverage is a necessary but insufficient adequacy
+      signal. Mutation testing provides a strictly stronger signal.
+
+      Formal proof (deferred): proof-carrying code (Necula 1997) and LLM-generated
+      proofs (First et al. 2023) provide the strongest guarantees within their
+      assumed models. The approach is currently limited to small, well-specified
+      functions and requires proof assistants (Lean, Coq, Isabelle) not present in
+      cobbler's toolchain. We revisit this when LLM proof generation matures for
+      Go-scale programs.
+
+      The portfolio approach follows the empirical evidence: combined techniques
+      catch more faults than any single technique. The portfolio is extensible;
+      new techniques can be added with a weight and a typed result without changing
+      the scoring infrastructure.
+
+references:
+  - "Rice, H.G. (1953). Classes of Recursively Enumerable Sets and Their Decision Problems. Transactions of the AMS, 74(2), 358-366."
+  - "Floyd, R.W. (1967). Assigning Meanings to Programs. Symposia in Applied Mathematics, 19, 19-32."
+  - "Hoare, C.A.R. (1969). An Axiomatic Basis for Computer Programming. CACM, 12(10), 576-580."
+  - "Dijkstra, E.W. (1970). Notes on Structured Programming. EWD249, Technological University Eindhoven."
+  - "Fagan, M.E. (1976). Design and Code Inspections to Reduce Errors in Program Development. IBM Systems Journal, 15(3), 182-211."
+  - "Cousot, P. and Cousot, R. (1977). Abstract Interpretation: A Unified Lattice Model for Static Analysis of Programs. POPL."
+  - "DeMillo, R.A., Lipton, R.J., and Sayward, F.G. (1978). Hints on Test Data Selection: Help for the Practicing Programmer. IEEE Computer, 11(4), 34-41."
+  - "DeMillo, R.A., Lipton, R.J., and Perlis, A.J. (1979). Social Processes and Proofs of Theorems and Programs. CACM, 22(5), 271-280."
+  - "Avizienis, A. (1985). The N-Version Approach to Fault-Tolerant Software. IEEE TSE, SE-11(12), 1491-1501."
+  - "Knight, J.C. and Leveson, N.G. (1986). An Experimental Evaluation of the Assumption of Independence in Multi-Version Programming. IEEE TSE, SE-12(1), 96-109."
+  - "Mills, H.D., Dyer, M., and Linger, R.C. (1987). Cleanroom Software Engineering. IEEE Software, 4(5), 19-25."
+  - "Fetzer, J.H. (1988). Program Verification: The Very Idea. CACM, 31(9), 1048-1063."
+  - "Miller, B.P., Fredriksen, L., and So, B. (1990). An Empirical Study of the Reliability of UNIX Utilities. CACM, 33(12), 32-44."
+  - "Meyer, B. (1992). Applying Design by Contract. IEEE Computer, 25(10), 40-51."
+  - "Offutt, A.J. (1992). Investigations of the Software Testing Coupling Effect. ACM TOSEM, 1(1), 5-20."
+  - "McMillan, K.L. (1993). Symbolic Model Checking. Kluwer Academic Publishers."
+  - "Linger, R.C. (1994). Cleanroom Process Model. IEEE Software, 11(2), 50-58."
+  - "Heitmeyer, C.L., Jeffords, R.D., and Labaw, B.G. (1996). Automated Consistency Checking of Requirements Specifications. ACM TOSEM, 5(3), 231-261."
+  - "Necula, G.C. (1997). Proof-Carrying Code. POPL."
+  - "Zhu, H., Hall, P.A.V., and May, J.H.R. (1997). Software Unit Test Coverage and Adequacy. ACM Computing Surveys, 29(4), 366-427."
+  - "McKeeman, W.M. (1998). Differential Testing for Software. Digital Technical Journal, 10(1), 100-107."
+  - "Pnueli, A., Siegel, M., and Singerman, E. (1998). Translation Validation. TACAS."
+  - "Claessen, K. and Hughes, J. (2000). QuickCheck: A Lightweight Tool for Random Testing of Haskell Programs. ICFP."
+  - "Biere, A., Cimatti, A., Clarke, E.M., and Zhu, Y. (2003). Symbolic Model Checking without BDDs. TACAS."
+  - "Jia, Y. and Harman, M. (2011). An Analysis and Survey of the Development of Mutation Testing. IEEE TSE, 37(5), 649-678."
+  - "Yang, X., Chen, Y., Eide, E., and Regehr, J. (2011). Finding and Understanding Bugs in C Compilers. PLDI."
+  - "Inozemtseva, L. and Holmes, R. (2014). Coverage Is Not Strongly Correlated with Test Suite Effectiveness. ICSE."
+  - "Perry, N. et al. (2023). Do Users Write More Insecure Code with AI Assistants? ACM CCS."
+  - "First, E. et al. (2023). Baldur: Whole-Proof Generation and Repair with Large Language Models. FSE."
+  - "CodeRabbit (2025). State of AI vs Human Code Generation Report."
+  - "Endres, M. et al. (2025). Property-Based Testing for LLM-Generated Code. FSE."
+  - "Qodo (2025). State of AI Code Quality Report."
+  - "Siddiq, M.L. et al. (2025). An Empirical Study of Using GitHub Copilot in Practice. ACM TOSEM."
