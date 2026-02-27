@@ -1,0 +1,42 @@
+id: rel03.0-uc004-translation-validation
+title: "Use Case: Translation Validation"
+
+summary: |
+  After stitch completes a task, inspect runs translation validation to check
+  whether the produced output conforms to the PRD acceptance criteria and use
+  case success criteria that drove the task.
+
+actor: Developer running cobbler inspect or development loop
+
+trigger: |
+  Stitch completed a task and inspect is evaluating the output quality.
+
+flow:
+  - F1: "Inspect receives the stitch output: crumb ID, modified files, and diff."
+  - F2: "Inspect resolves the originating PRD and use case from the crumb's work_type and metadata."
+  - F3: "Inspect extracts acceptance criteria from the PRD and success criteria from the use case."
+  - F4: "Mechanical checks run: file existence, symbol presence, compilation, and test execution."
+  - F5: "Each mechanical check maps to one or more acceptance criteria and records pass or fail."
+  - F6: "Semantic criteria that resist mechanical checking are sent to an LLM judge with criterion text and diff."
+  - F7: "The LLM judge evaluates each semantic criterion and returns pass, fail, or inconclusive with evidence."
+  - F8: "The translation validation score is computed as passed criteria divided by total criteria."
+  - F9: "The typed result (score, verdict, evidence) is returned to the composite scorer."
+
+touchpoints:
+  - T1: "Resolves PRD acceptance criteria for the crumb's task (prd008-inspect-verification R2)"
+  - T2: "Mechanical checks cover file, symbol, compilation, and test gates (prd008-inspect-verification R2)"
+  - T3: "LLM judge evaluates semantic criteria with criterion text and diff (prd008-inspect-verification R2)"
+  - T4: "Returns typed result to composite scorer (prd008-inspect-verification R1, R7)"
+
+success_criteria:
+  - S1: "PRD and use case resolved from crumb metadata without manual specification"
+  - S2: "Mechanical checks produce deterministic pass/fail per criterion"
+  - S3: "LLM judge receives criterion text and diff but not the stitch prompt"
+  - S4: "Translation validation score computed as ratio of passed to total criteria"
+
+out_of_scope:
+  - Verifying requirements not referenced by the crumb
+  - Modifying the stitch output
+  - Running mutation testing or differential testing (separate techniques)
+
+test_suite: test-rel03.0

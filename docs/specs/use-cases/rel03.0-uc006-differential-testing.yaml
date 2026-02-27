@@ -1,0 +1,41 @@
+id: rel03.0-uc006-differential-testing
+title: "Use Case: Differential Testing"
+
+summary: |
+  After stitch completes a task that has benchmark fixtures, inspect runs
+  differential testing to compare generated output against known-good reference
+  results.
+
+actor: Developer running cobbler inspect or development loop
+
+trigger: |
+  Stitch completed a task and benchmark fixtures exist in the tests/ directory
+  for the task type.
+
+flow:
+  - F1: "Inspect checks the tests/ directory for benchmark fixtures matching the crumb's task type."
+  - F2: "Each fixture defines inputs, expected outputs, and a comparison method."
+  - F3: "For code tasks, inspect builds the stitch-produced code and runs it with fixture inputs."
+  - F4: "For documentation tasks, inspect checks section presence, schema conformance, and content bounds."
+  - F5: "Inspect compares actual output against expected output using the fixture's comparison method."
+  - F6: "Divergences are recorded with input, expected output, actual output, and comparison method."
+  - F7: "The differential match rate is computed as matching fixtures divided by total fixtures."
+  - F8: "The typed result (score, verdict, evidence) is returned to the composite scorer."
+
+touchpoints:
+  - T1: "Loads benchmark fixtures from tests/ directory (prd008-inspect-verification R4)"
+  - T2: "Compares stitch output against fixtures using configurable comparison (prd008-inspect-verification R4)"
+  - T3: "Returns typed result to composite scorer (prd008-inspect-verification R1, R7)"
+
+success_criteria:
+  - S1: "Fixtures loaded from tests/ directory with inputs, expected outputs, and comparison method"
+  - S2: "Code task fixtures run build-and-execute with stdout comparison"
+  - S3: "Documentation task fixtures check section presence and schema conformance"
+  - S4: "Technique skips without penalty when no fixtures exist for the task type"
+
+out_of_scope:
+  - Creating fixtures for tasks that lack them
+  - Fuzzing inputs beyond what fixtures define
+  - Comparing against external systems or services
+
+test_suite: test-rel03.0

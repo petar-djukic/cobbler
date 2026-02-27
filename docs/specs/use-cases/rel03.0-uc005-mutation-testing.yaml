@@ -1,0 +1,41 @@
+id: rel03.0-uc005-mutation-testing
+title: "Use Case: Mutation Testing"
+
+summary: |
+  After stitch produces code and tests, inspect runs mutation testing to
+  measure whether the generated test suite detects injected faults in the
+  generated code.
+
+actor: Developer running cobbler inspect or development loop
+
+trigger: |
+  Stitch completed a code task that produced both source code and test files.
+
+flow:
+  - F1: "Inspect identifies packages modified by stitch from the diff."
+  - F2: "Inspect checks that test files exist for the modified packages."
+  - F3: "The mutation testing tool injects syntactic mutations into the modified source code."
+  - F4: "Mutation types include operator replacement, statement deletion, condition negation, and boundary changes."
+  - F5: "The tool runs existing tests against each mutant and records killed or survived."
+  - F6: "Equivalent mutant detection excludes mutants that produce identical compiled output."
+  - F7: "The mutation score is computed as killed mutants divided by total non-equivalent mutants."
+  - F8: "Surviving mutants are reported with file path, line number, mutation type, and original versus mutated code."
+  - F9: "The typed result (score, verdict, evidence) is returned to the composite scorer."
+
+touchpoints:
+  - T1: "Runs Go mutation tool against stitch-modified packages (prd008-inspect-verification R3)"
+  - T2: "Reports surviving mutants with location and mutation details (prd008-inspect-verification R3)"
+  - T3: "Returns typed result to composite scorer (prd008-inspect-verification R1, R7)"
+
+success_criteria:
+  - S1: "Mutation tool runs only on packages modified by the stitch task"
+  - S2: "Mutation score computed from killed versus total non-equivalent mutants"
+  - S3: "Surviving mutants reported with file, line, mutation type, and code diff"
+  - S4: "Technique skips gracefully when no test files exist for modified packages"
+
+out_of_scope:
+  - Custom mutation operators beyond standard syntactic mutations
+  - Mutating test files themselves
+  - Generating new tests to kill surviving mutants (covered by mend)
+
+test_suite: test-rel03.0
