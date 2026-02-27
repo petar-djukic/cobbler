@@ -7,6 +7,7 @@ traces:
   - rel04.0-uc002-test-lint-fix-loop
   - rel04.0-uc003-design-proposals
   - rel04.0-uc004-property-based-testing
+  - rel04.0-uc005-contract-injection
 
 preconditions:
   - Stitch has completed at least one task cycle
@@ -84,3 +85,32 @@ test_cases:
       report_has_requirement_id: true
       report_has_property_description: true
       report_has_counterexample: true
+
+  - use_case: rel04.0-uc005-contract-injection
+    name: Precondition generated from must-receive pattern
+    description: Verify injector produces precondition assertion from "must receive X" requirement.
+    inputs:
+      requirement_text: "Agent.Run must receive a non-empty prompt"
+    expected:
+      contract_type: precondition
+      assertion_generated: true
+      build_tag_present: true
+
+  - use_case: rel04.0-uc005-contract-injection
+    name: Contracts injected into copies not originals
+    description: Verify original source files are unchanged after contract injection.
+    inputs:
+      source_files: ["agent.go"]
+    expected:
+      original_unchanged: true
+      copy_has_contracts: true
+
+  - use_case: rel04.0-uc005-contract-injection
+    name: Contract violation includes requirement ID
+    description: Verify a triggered contract violation reports the source requirement ID.
+    inputs:
+      contract_violated: true
+    expected:
+      report_has_requirement_id: true
+      report_has_expected_condition: true
+      report_has_actual_value: true

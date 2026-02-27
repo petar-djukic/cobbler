@@ -106,6 +106,9 @@ releases:
       - id: rel04.0-uc004-property-based-testing
         summary: Derive testable properties from PRD requirements and run against generated code
         status: planned
+      - id: rel04.0-uc005-contract-injection
+        summary: Inject precondition, postcondition, and invariant assertions from PRD requirements
+        status: planned
 
   - version: "99.0"
     name: Unscheduled

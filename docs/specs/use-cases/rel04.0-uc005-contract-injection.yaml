@@ -1,0 +1,42 @@
+id: rel04.0-uc005-contract-injection
+title: "Use Case: Contract Injection"
+
+summary: |
+  After stitch produces code, inspect generates contract assertions from PRD
+  requirements and injects them into copies of the source files. Contracts
+  check preconditions, postconditions, and invariants at runtime during test
+  execution.
+
+actor: Developer running cobbler inspect or development loop
+
+trigger: |
+  Stitch completed a code task and inspect is evaluating the output quality.
+
+flow:
+  - F1: "Inspect resolves the PRD requirements that drove the stitch task via crumb metadata."
+  - F2: "The contract injector parses each requirement item to identify contract patterns."
+  - F3: "Contract types are matched: preconditions from 'must receive X', postconditions from 'must return Y', invariants from 'must always maintain Z'."
+  - F4: "The injector generates Go assertion code for each matched contract."
+  - F5: "Assertions are injected into copies of the stitch-produced source files, not the originals."
+  - F6: "Injected files are guarded by a //go:build contracts build tag."
+  - F7: "Inspect runs tests with the contracts build tag enabled."
+  - F8: "Contract violations are recorded with PRD requirement ID, expected condition, and actual value."
+  - F9: "The typed result (score, verdict, evidence) is returned to the composite scorer."
+
+touchpoints:
+  - T1: "Generates contract assertions from PRD requirement patterns (prd008-inspect-verification R6)"
+  - T2: "Contracts guarded by build tag with zero production overhead (prd008-inspect-verification R6)"
+  - T3: "Returns typed result to composite scorer (prd008-inspect-verification R1, R7)"
+
+success_criteria:
+  - S1: "At least 3 contract types supported: preconditions, postconditions, invariants"
+  - S2: "Contracts injected into copies, not originals, of stitch-produced files"
+  - S3: "Build tag contracts enables or disables all injected assertions"
+  - S4: "Contract violations include PRD requirement ID for traceability"
+
+out_of_scope:
+  - State machine contracts (deferred to future iteration)
+  - Contracts for non-Go languages
+  - Injecting contracts into test files
+
+test_suite: test-rel04.0
