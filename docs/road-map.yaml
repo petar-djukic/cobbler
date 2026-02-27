@@ -103,6 +103,9 @@ releases:
       - id: rel04.0-uc003-design-proposals
         summary: Propose architectural changes based on specifications and patterns
         status: planned
+      - id: rel04.0-uc004-property-based-testing
+        summary: Derive testable properties from PRD requirements and run against generated code
+        status: planned
 
   - version: "99.0"
     name: Unscheduled

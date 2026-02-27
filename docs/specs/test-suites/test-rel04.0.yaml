@@ -6,6 +6,7 @@ traces:
   - rel04.0-uc001-project-state-display
   - rel04.0-uc002-test-lint-fix-loop
   - rel04.0-uc003-design-proposals
+  - rel04.0-uc004-property-based-testing
 
 preconditions:
   - Stitch has completed at least one task cycle
@@ -53,3 +54,33 @@ test_cases:
       proposals_generated: true
       proposals_are_crumbs: true
       proposals_actionable: true
+
+  - use_case: rel04.0-uc004-property-based-testing
+    name: Type presence properties derived from requirements
+    description: Verify deriver produces type presence properties from "must track X, Y, Z" patterns.
+    inputs:
+      requirement_text: "Response.Usage must track InputTokens, OutputTokens"
+    expected:
+      properties_derived: true
+      property_category: type_presence
+      property_count_positive: true
+
+  - use_case: rel04.0-uc004-property-based-testing
+    name: Ambiguous requirements reported as warnings
+    description: Verify requirements that do not match patterns are warnings not failures.
+    inputs:
+      requirement_text: "The system should generally work well"
+    expected:
+      properties_derived: false
+      warning_reported: true
+      score_not_penalized: true
+
+  - use_case: rel04.0-uc004-property-based-testing
+    name: Property violations traced to requirement ID
+    description: Verify failing properties include the source requirement ID and counterexample.
+    inputs:
+      property_fails: true
+    expected:
+      report_has_requirement_id: true
+      report_has_property_description: true
+      report_has_counterexample: true

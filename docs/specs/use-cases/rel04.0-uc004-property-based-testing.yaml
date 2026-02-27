@@ -1,0 +1,41 @@
+id: rel04.0-uc004-property-based-testing
+title: "Use Case: Property-Based Test Derivation"
+
+summary: |
+  After stitch produces code, inspect derives testable properties from the
+  PRD requirements that drove the task and runs them against the generated
+  code using Go fuzz testing or a property-based testing library.
+
+actor: Developer running cobbler inspect or development loop
+
+trigger: |
+  Stitch completed a code task and inspect is evaluating the output quality.
+
+flow:
+  - F1: "Inspect resolves the PRD requirements that drove the stitch task via crumb metadata."
+  - F2: "The property deriver parses each requirement item using template-based pattern matching."
+  - F3: "Matched patterns produce typed properties: type presence, enumeration, invariant, idempotence, or state transition."
+  - F4: "Requirements that do not match any pattern are reported as warnings."
+  - F5: "The deriver generates Go property test files targeting the stitch-modified packages."
+  - F6: "Inspect runs the generated property tests and records pass or fail per property."
+  - F7: "The property pass rate is computed as passing properties divided by total derived properties."
+  - F8: "Each property is traced to its source PRD requirement ID."
+  - F9: "The typed result (score, verdict, evidence) is returned to the composite scorer."
+
+touchpoints:
+  - T1: "Derives properties from PRD requirement items via template matching (prd008-inspect-verification R5)"
+  - T2: "Generates Go property tests using fuzz testing or property library (prd008-inspect-verification R5)"
+  - T3: "Returns typed result to composite scorer (prd008-inspect-verification R1, R7)"
+
+success_criteria:
+  - S1: "At least 4 property categories supported: type presence, enumeration, invariant, idempotence"
+  - S2: "Properties derived deterministically from requirement language, not via LLM"
+  - S3: "Generated property tests compile and run against stitch-modified packages"
+  - S4: "Property violations reported with requirement ID, property description, and counterexample"
+
+out_of_scope:
+  - LLM-generated properties
+  - Properties for requirements outside the current stitch task
+  - Generating properties from use case success criteria (translation validation handles those)
+
+test_suite: test-rel04.0
